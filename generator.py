@@ -57,9 +57,23 @@ class DataGenerator:
             A.GaussNoise(p=0.5, var_limit=(100.0, 100.0)),
             A.MultiplicativeNoise(p=0.5, multiplier=(0.8, 1.2), elementwise=True)
         ])
+        if input_type in ['nv12', 'nv21']:
+            self.yuv_mask = self.make_yuv_mask()
+            self.num_yuv_pos = np.sum(self.yuv_mask)
+        else:
+            self.yuv_mask = 1.0
+            self.num_yuv_pos = 1.0
 
     def __len__(self):
         return int(np.floor(len(self.image_paths) / self.batch_size))
+
+    def make_yuv_mask(self):
+        target_shape = (self.batch_size,) + self.input_shape
+        mask = np.ones(shape=target_shape, dtype=np.float32)
+        input_rows = self.input_shape[0]
+        mask[:, (input_rows // 2):, :, 1] = 0.0
+        mask[:, :, :, 2] = 0.0
+        return mask
 
     def __getitem__(self, index):
         fs = []
@@ -72,7 +86,7 @@ class DataGenerator:
             batch_y.append(self.normalize(np.asarray(img_noise).reshape(self.input_shape)))
         batch_x = np.asarray(batch_x).astype(self.dtype)
         batch_y = np.asarray(batch_y).astype(self.dtype)
-        return batch_x, batch_y
+        return batch_x, batch_y, self.yuv_mask, self.num_yuv_pos
 
     @staticmethod
     def normalize(x):
@@ -148,15 +162,18 @@ class DataGenerator:
         # contrast_target = 128.0
         # contrast_power = 0.5
 
-        range_min = np.random.uniform(0.0, 100.0)
-        range_max = np.random.uniform(0.0, 100.0)
+        noise_power = 100.0
+        range_min = np.random.uniform()
+        range_max = np.random.uniform()
         img_noise = np.array(img).astype('float32')
         if self.input_type in ['nv12', 'nv21']:
             y_noise = img_noise[:, :, 0]
-            y_noise += np.random.uniform(-range_min, range_max, size=y_noise.shape)
+            y_noise += np.random.uniform(-range_min * noise_power, range_max * noise_power, size=y_noise.shape)
+            # y_noise *= np.random.uniform(0.5, 1.5, size=y_noise.shape)
             # y_noise += (contrast_target - y_noise) * contrast_power
         else:
-            img_noise += np.random.uniform(-range_min, range_max, size=img.shape)
+            img_noise += np.random.uniform(-range_min * noise_power, range_max * noise_power, size=img.shape)
+            # img_noise *= np.random.uniform(0.8, 1.2, size=img_noise.shape)
             # img_noise += (contrast_target - img_noise) * contrast_power
         img_noise = np.clip(img_noise, 0.0, 255.0).astype('uint8')
         return img, img_noise

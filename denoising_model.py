@@ -125,10 +125,15 @@ class DenoisingModel:
         return model, input_shape
 
     @tf.function
-    def compute_gradient(self, model, optimizer, x, y_true):
+    def compute_gradient(self, model, optimizer, x, y_true, yuv_mask, num_yuv_pos, is_yuv):
+        def criterion(y_true, y_pred):
+            return tf.square(y_true - y_pred) + tf.abs(y_true - y_pred)
         with tf.GradientTape() as tape:
             y_pred = model(x, training=True)
-            loss = tf.reduce_mean(tf.square(y_true - y_pred) + tf.abs(y_true - y_pred))
+            if is_yuv:
+                loss = tf.reduce_sum(criterion(y_true, y_pred)) / (num_yuv_pos * tf.cast(tf.shape(x)[0], y_pred.dtype))
+            else:
+                loss = tf.reduce_mean(criterion(y_true, y_pred))
         gradients = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         return loss
@@ -198,10 +203,11 @@ class DenoisingModel:
         os.makedirs(self.checkpoint_path, exist_ok=True)
         optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.lr)
         lr_scheduler = LRScheduler(lr=self.lr, iterations=self.iterations, warm_up=self.warm_up, policy='step')
+        is_yuv = self.input_type in ['nv12', 'nv21']
         while True:
-            for batch_x, batch_y in self.data_generator:
+            for batch_x, batch_y, mask, num_pos in self.data_generator:
                 lr_scheduler.update(optimizer, iteration_count)
-                loss = self.compute_gradient(self.model, optimizer, batch_x, batch_y)
+                loss = self.compute_gradient(self.model, optimizer, batch_x, batch_y, mask, num_pos, is_yuv)
                 iteration_count += 1
                 print(f'\r[iteration_count : {iteration_count:6d}] loss : {loss:>8.4f}', end='')
                 if self.training_view:
