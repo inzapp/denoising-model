@@ -157,11 +157,6 @@ class DataGenerator:
         elif self.input_type in ['nv12', 'nv21']:
             img = self.convert_bgr2yuv3ch(img, self.input_type)
 
-        # contrast_target = np.random.uniform() * 60.0 + 100.0
-        # contrast_power = np.random.uniform() * 0.75
-        # contrast_target = 128.0
-        # contrast_power = 0.5
-
         noise_power = 100.0
         range_min = np.random.uniform()
         range_max = np.random.uniform()
@@ -169,12 +164,8 @@ class DataGenerator:
         if self.input_type in ['nv12', 'nv21']:
             y_noise = img_noise[:, :, 0]
             y_noise += np.random.uniform(-range_min * noise_power, range_max * noise_power, size=y_noise.shape)
-            # y_noise *= np.random.uniform(0.5, 1.5, size=y_noise.shape)
-            # y_noise += (contrast_target - y_noise) * contrast_power
         else:
             img_noise += np.random.uniform(-range_min * noise_power, range_max * noise_power, size=img.shape)
-            # img_noise *= np.random.uniform(0.8, 1.2, size=img_noise.shape)
-            # img_noise += (contrast_target - img_noise) * contrast_power
         img_noise = np.clip(img_noise, 0.0, 255.0).astype('uint8')
         return img, img_noise
 
