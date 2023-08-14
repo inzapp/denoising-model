@@ -36,16 +36,20 @@ class Model:
         self.input_shape = input_shape
 
     def build(self, bn=False):
-        assert self.input_shape[0] % 2 == 0 and self.input_shape[1] % 2 == 0, 'input_rows, input_cols must be multiple of 4 '
         input_layer = tf.keras.layers.Input(shape=self.input_shape, name='dn_input')
         x = input_layer
         x = self.conv2d(x, 4, 3, 1, bn=bn, activation='leaky')
         x = self.conv2d(x, 4, 3, 1, bn=bn, activation='leaky')
-        output_layer = self.denoising_layer(x)
+        output_layer = self.denoising_layer(x, name='dn_output')
         return tf.keras.models.Model(input_layer, output_layer)
 
-    def denoising_layer(self, x):
-        return self.conv2d(x, self.input_shape[-1], 1, 1, bn=False, activation='sigmoid', name='dn_output')
+    def denoising_layer(self, x, name):
+        x = tf.keras.layers.Conv2D(
+            filters=1,
+            padding='same',
+            kernel_size=1,
+            kernel_initializer=self.kernel_initializer())(x)
+        return self.activation(x, 'sigmoid', name=name)
 
     def conv2d(self, x, filters, kernel_size, strides, bn=False, activation='relu', name=None):
         x = tf.keras.layers.Conv2D(
@@ -66,9 +70,9 @@ class Model:
     def kernel_initializer(self):
         return tf.keras.initializers.glorot_normal()
 
-    def activation(self, x, activation):
+    def activation(self, x, activation, name=None):
         if activation == 'leaky':
-            return tf.keras.layers.LeakyReLU(alpha=0.1)(x)
+            return tf.keras.layers.LeakyReLU(alpha=0.1, name=name)(x)
         else:
-            return tf.keras.layers.Activation(activation=activation)(x) if activation != 'linear' else x
+            return tf.keras.layers.Activation(activation=activation, name=name)(x) if activation != 'linear' else x
 
