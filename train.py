@@ -38,6 +38,7 @@ if __name__ == '__main__':
         input_type='rgb',  # available types : [rgb, gray, nv12, nv21]
         lr=0.001,
         warm_up=0.1,
+        stddev=30.0,
         batch_size=2,
         iterations=300000,
         save_interval=5000,

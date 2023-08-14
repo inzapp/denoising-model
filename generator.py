@@ -37,12 +37,14 @@ class DataGenerator:
                  input_shape,
                  input_type,
                  batch_size,
+                 stddev,
                  dtype='float32'):
         assert input_type in ['gray', 'rgb', 'nv12', 'nv21']
         self.image_paths = image_paths
         self.input_shape = input_shape
         self.input_type = input_type
         self.batch_size = batch_size
+        self.stddev = stddev
         self.dtype = dtype
         self.pool = ThreadPoolExecutor(8)
         self.img_index = 0
@@ -157,15 +159,13 @@ class DataGenerator:
         elif self.input_type in ['nv12', 'nv21']:
             img = self.convert_bgr2yuv3ch(img, self.input_type)
 
-        noise_power = 100.0
-        range_min = np.random.uniform()
-        range_max = np.random.uniform()
         img_noise = np.array(img).astype('float32')
+        stddev = np.random.uniform() * self.stddev
         if self.input_type in ['nv12', 'nv21']:
             y_noise = img_noise[:, :, 0]
-            y_noise += np.random.uniform(-range_min * noise_power, range_max * noise_power, size=y_noise.shape)
+            y_noise += np.random.normal(loc=0.0, scale=stddev, size=y_noise.shape)
         else:
-            img_noise += np.random.uniform(-range_min * noise_power, range_max * noise_power, size=img.shape)
+            img_noise += np.random.normal(loc=0.0, scale=stddev, size=img.shape)
         img_noise = np.clip(img_noise, 0.0, 255.0).astype('uint8')
         return img, img_noise
 
