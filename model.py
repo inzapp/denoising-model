@@ -45,7 +45,7 @@ class Model:
 
     def denoising_layer(self, x, name):
         x = tf.keras.layers.Conv2D(
-            filters=1,
+            filters=self.input_shape[-1],
             padding='same',
             kernel_size=1,
             kernel_initializer=self.kernel_initializer())(x)
