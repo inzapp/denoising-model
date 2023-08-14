@@ -150,13 +150,33 @@ class DataGenerator:
         return bgr
 
     def load_image(self, image_path):
-        data = np.fromfile(image_path, dtype=np.uint8)
-        img = cv2.imdecode(data, cv2.IMREAD_GRAYSCALE if self.input_type == 'gray' else cv2.IMREAD_COLOR)
+        if np.random.uniform() < 0.0:
+            background_color = np.random.uniform(size=self.input_shape[-1]) * 0.25
+            img = (background_color.astype('float32').reshape((1, 1, self.input_shape[-1])) * 255.0).astype('uint8')
+            img = cv2.resize(img, (self.input_shape[1], self.input_shape[0]), interpolation=cv2.INTER_NEAREST)
 
-        img = self.resize(img, (self.input_shape[1], self.input_shape[0]))
-        if self.input_type == 'rgb':
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        elif self.input_type in ['nv12', 'nv21']:
+            foreground_color = np.random.uniform(size=3) * 255.0 * 0.25
+            x1 = int(np.random.uniform() * self.input_shape[1])
+            y1 = int(np.random.uniform() * self.input_shape[0])
+            w = int(np.random.uniform() * self.input_shape[1])
+            h = int(np.random.uniform() * self.input_shape[0])
+            if np.random.uniform() < 0.5:
+                x2 = x1 + w
+                y2 = y1 + h
+                img = cv2.rectangle(img, (x1, y1), (x2, y2), foreground_color, -1)
+            else:
+                cx = int(x1 + (w * 0.5))
+                cy = int(y1 + (h * 0.5))
+                radius = w
+                img = cv2.circle(img, (cx, cy), radius, foreground_color, -1)
+        else:
+            data = np.fromfile(image_path, dtype=np.uint8)
+            img = cv2.imdecode(data, cv2.IMREAD_GRAYSCALE if self.input_type == 'gray' else cv2.IMREAD_COLOR)
+            img = self.resize(img, (self.input_shape[1], self.input_shape[0]))
+            if self.input_type == 'rgb':
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        if self.input_type in ['nv12', 'nv21']:
             img = self.convert_bgr2yuv3ch(img, self.input_type)
 
         img_noise = np.array(img).astype('float32')

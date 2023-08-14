@@ -46,7 +46,7 @@ class TrainingConfig:
                  input_type='gray',
                  lr=0.001,
                  warm_up=0.1,
-                 stddev=30.0,
+                 stddev=25.0,
                  batch_size=2,
                  iterations=100000,
                  save_interval=5000,
@@ -130,14 +130,15 @@ class DenoisingModel:
 
     @tf.function
     def compute_gradient(self, model, optimizer, x, y_true, yuv_mask, num_yuv_pos, is_yuv):
-        def criterion(y_true, y_pred):
-            return tf.square(y_true - y_pred) + tf.abs(y_true - y_pred)
         with tf.GradientTape() as tape:
             y_pred = model(x, training=True)
+            loss = tf.abs(y_true - y_pred)
+            ssim = 1.0 - tf.reduce_mean(tf.image.ssim(y_true, y_pred, 1.0))
             if is_yuv:
-                loss = tf.reduce_sum(criterion(y_true, y_pred)) / (num_yuv_pos * tf.cast(tf.shape(x)[0], y_pred.dtype))
+                loss = tf.reduce_sum(loss) / (num_yuv_pos * tf.cast(tf.shape(x)[0], y_pred.dtype))
             else:
-                loss = tf.reduce_mean(criterion(y_true, y_pred))
+                loss = tf.reduce_mean(loss)
+            loss += ssim
         gradients = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         return loss
