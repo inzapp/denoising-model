@@ -133,12 +133,12 @@ class DenoisingModel:
         with tf.GradientTape() as tape:
             y_pred = model(x, training=True)
             loss = tf.abs(y_true - y_pred)
-            ssim = 1.0 - tf.reduce_mean(tf.image.ssim(y_true, y_pred, 1.0))
+            # ssim = 1.0 - tf.reduce_mean(tf.image.ssim(y_true, y_pred, 1.0))
             if is_yuv:
                 loss = tf.reduce_sum(loss) / (num_yuv_pos * tf.cast(tf.shape(x)[0], y_pred.dtype))
             else:
                 loss = tf.reduce_mean(loss)
-            loss += ssim
+            # loss += ssim
         gradients = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         return loss
