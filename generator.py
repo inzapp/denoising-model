@@ -182,8 +182,11 @@ class DataGenerator:
         img_noise = np.array(img).astype('float32')
         stddev = np.random.uniform() * self.stddev
         if self.input_type in ['nv12', 'nv21']:
-            y_noise = img_noise[:, :, 0]
-            y_noise += np.random.normal(loc=0.0, scale=stddev, size=y_noise.shape)
+            if np.random.uniform() < 0.5:
+                noise_target = img_noise[:, :, 0]
+            else:
+                noise_target = img_noise
+            noise_target += np.random.normal(loc=0.0, scale=stddev, size=noise_target.shape)
         else:
             img_noise += np.random.normal(loc=0.0, scale=stddev, size=img.shape)
         img_noise = np.clip(img_noise, 0.0, 255.0).astype('uint8')
