@@ -216,7 +216,7 @@ class DenoisingModel:
         print('start training')
         iteration_count = 0
         os.makedirs(self.checkpoint_path, exist_ok=True)
-        optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.lr)
+        optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr)
         lr_scheduler = LRScheduler(lr=self.lr, iterations=self.iterations, warm_up=self.warm_up, policy='step')
         is_yuv = self.input_type in ['nv12', 'nv21']
         while True:
