@@ -49,12 +49,15 @@ if __name__ == '__main__':
     parser.add_argument('--predict', action='store_true', help='evaluate using train or validation dataset')
     parser.add_argument('--dataset', type=str, default='validation', help='dataset for evaluate, train or validation available')
     parser.add_argument('--path', type=str, default='', help='image or video path for evaluate')
+    parser.add_argument('--r', action='store_true', help='find images recursively')
+    parser.add_argument('--save', action='store_true', help='save prediction result as an image')
+    parser.add_argument('--count', type=int, default=0, help='count for save images')
     args = parser.parse_args()
     if args.model != '':
         config.pretrained_model_path = args.model
     denoising_model = DenoisingModel(config=config)
     if args.predict:
-        denoising_model.predict_images(image_path=args.path, dataset=args.dataset)
+        denoising_model.predict_images(image_path=args.path, dataset=args.dataset, save_count=args.count if args.save else 0, recursive=args.r)
     else:
         denoising_model.train()
 

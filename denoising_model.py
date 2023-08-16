@@ -169,14 +169,14 @@ class DenoisingModel:
             decoded_image = np.concatenate((origin_bgr, decoded_image), axis=1)
         return decoded_image
 
-    def predict_images(self, image_path='', dataset='validation'):
+    def predict_images(self, image_path='', dataset='validation', save_count=0, recursive=False):
         image_paths = []
         if image_path != '':
             if not os.path.exists(image_path):
                 print(f'image path not found : {image_path}')
                 return
             if os.path.isdir(image_path):
-                image_paths = glob(f'{image_path}/*.jpg')
+                image_paths = glob(f'{image_path}/**/*.jpg' if recursive else f'{image_path}/*.jpg', recursive=recursive)
             else:
                 image_paths = [image_path]
         else:
@@ -190,15 +190,25 @@ class DenoisingModel:
             print(f'no images found')
             return
 
+        cnt = 0
+        save_path = 'result_images'
+        os.makedirs(save_path, exist_ok=True)
         for path in image_paths:
-            img, img_noise = self.data_generator.load_image(path)
-            if np.random.uniform() < 0.5:
-                img = img_noise
-            decoded_image = self.predict(img)
-            cv2.imshow('decoded_image', decoded_image)
-            key = cv2.waitKey(0)
-            if key == 27:
-                exit(0)
+            _, img_noise = self.data_generator.load_image(path)
+            decoded_image = self.predict(img_noise)
+            if save_count > 0:
+                basename = os.path.basename(path)
+                save_img_path = f'{save_path}/{basename}'
+                cv2.imwrite(save_img_path, decoded_image, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                cnt += 1
+                print(f'[{cnt} / {save_count}] save success : {save_img_path}')
+                if cnt == save_count:
+                    break
+            else:
+                cv2.imshow('decoded_image', decoded_image)
+                key = cv2.waitKey(0)
+                if key == 27:
+                    exit(0)
 
     def train(self):
         self.model.summary()
