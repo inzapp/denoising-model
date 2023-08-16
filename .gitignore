@@ -7,4 +7,5 @@
 .idea/
 __pycache__/
 checkpoints/
+result_images/
 cscope.*
