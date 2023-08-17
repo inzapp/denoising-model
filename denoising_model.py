@@ -30,6 +30,7 @@ import numpy as np
 import tensorflow as tf
 
 from glob import glob
+from tqdm import tqdm
 from time import time
 from model import Model
 from generator import DataGenerator
@@ -144,6 +145,15 @@ class DenoisingModel:
         return loss, mse, ssim
 
     @tf.function
+    def calculate_mse_ssim(self, model, x, y_true):
+        with tf.GradientTape() as tape:
+            y_pred = model(x, training=False)
+            loss = tf.abs(y_true - y_pred)
+            mse = tf.reduce_mean(tf.square(loss))
+            ssim = 1.0 - tf.reduce_mean(tf.image.ssim(y_true, y_pred, 1.0))
+        return mse, ssim
+
+    @tf.function
     def graph_forward(self, model, x):
         return model(x, training=False)
 
@@ -212,6 +222,49 @@ class DenoisingModel:
 
     def psnr(self, mse):
         return 20 * np.log10(1.0 / np.sqrt(mse)) if mse!= 0.0 else 100.0
+
+    def evaluate(self, dataset='validation', image_path='', recursive=False):
+        image_paths = []
+        if image_path != '':
+            if not os.path.exists(image_path):
+                print(f'image path not found : {image_path}')
+                return
+            if os.path.isdir(image_path):
+                image_paths = glob(f'{image_path}/**/*.jpg' if recursive else f'{image_path}/*.jpg', recursive=recursive)
+            else:
+                image_paths = [image_path]
+        else:
+            assert dataset in ['train', 'validation']
+            if dataset == 'train':
+                image_paths = self.train_image_paths
+            else:
+                image_paths = self.validation_image_paths
+
+        if len(image_paths) == 0:
+            print(f'no images found')
+            return
+
+        data_generator = DataGenerator(
+            image_paths=image_paths,
+            input_shape=self.input_shape,
+            input_type=self.input_type,
+            batch_size=1,
+            stddev=self.stddev)
+
+        cnt = 0
+        psnr_sum = 0.0
+        ssim_sum = 0.0
+        for batch_x, batch_y, mask, num_pos in tqdm(data_generator):
+            mse, ssim = self.calculate_mse_ssim(self.model, batch_x, batch_y)
+            psnr_sum += self.psnr(mse)
+            ssim_sum += ssim
+            psnr = self.psnr(mse)
+            cnt += 1
+            if cnt == len(image_paths):
+                break
+        avg_psnr = psnr_sum / float(cnt)
+        avg_ssim = ssim_sum / float(cnt)
+        print(f'\nssim : {ssim:.4f}, psnr : {psnr:.2f}')
 
     def train(self):
         self.model.summary()

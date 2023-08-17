@@ -36,12 +36,12 @@ if __name__ == '__main__':
         input_rows=256,
         input_cols=256,
         input_type='rgb',  # available types : [rgb, gray, nv12, nv21]
-        lr=0.001,
+        lr=0.0003,
         warm_up=0.1,
         stddev=30.0,
         batch_size=2,
-        iterations=300000,
-        save_interval=5000,
+        iterations=100000,
+        save_interval=10000,
         training_view=False)
 
     parser = argparse.ArgumentParser()
@@ -58,6 +58,8 @@ if __name__ == '__main__':
     denoising_model = DenoisingModel(config=config)
     if args.predict:
         denoising_model.predict_images(image_path=args.path, dataset=args.dataset, save_count=args.count if args.save else 0, recursive=args.r)
+    elif args.evaluate:
+        denoising_model.evaluate(image_path=args.path, dataset=args.dataset, recursive=args.r)
     else:
         denoising_model.train()
 
