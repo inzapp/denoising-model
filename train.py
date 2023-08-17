@@ -46,9 +46,10 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type=str, default='', help='pretrained model path')
-    parser.add_argument('--predict', action='store_true', help='evaluate using train or validation dataset')
+    parser.add_argument('--predict', action='store_true', help='prediction using given dataset')
+    parser.add_argument('--evaluate', action='store_true', help='evaluate using given dataset')
     parser.add_argument('--dataset', type=str, default='validation', help='dataset for evaluate, train or validation available')
-    parser.add_argument('--path', type=str, default='', help='image or video path for evaluate')
+    parser.add_argument('--path', type=str, default='', help='image or video path for prediction or evaluation')
     parser.add_argument('--r', action='store_true', help='find images recursively')
     parser.add_argument('--save', action='store_true', help='save prediction result as an image')
     parser.add_argument('--count', type=int, default=0, help='count for save images')
