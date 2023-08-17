@@ -244,6 +244,7 @@ class DenoisingModel:
             print(f'no images found')
             return
 
+        np.random.seed(0)
         data_generator = DataGenerator(
             image_paths=image_paths,
             input_shape=self.input_shape,
