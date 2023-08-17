@@ -35,7 +35,7 @@ if __name__ == '__main__':
         validation_image_path='/train_data/coco/validation',
         input_rows=256,
         input_cols=256,
-        input_type='rgb',  # available types : [rgb, gray, nv12, nv21]
+        input_type='rgb',  # available types : [gray, rgb, nv12, nv21]
         lr=0.0003,
         warm_up=0.1,
         stddev=30.0,
@@ -46,19 +46,21 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type=str, default='', help='pretrained model path')
+    parser.add_argument('--type', type=str, default='', help='pretrained model input type : [gray, rgb, nv12, nv21]')
     parser.add_argument('--predict', action='store_true', help='prediction using given dataset')
     parser.add_argument('--evaluate', action='store_true', help='evaluate using given dataset')
     parser.add_argument('--dataset', type=str, default='validation', help='dataset for evaluate, train or validation available')
     parser.add_argument('--path', type=str, default='', help='image or video path for prediction or evaluation')
     parser.add_argument('--r', action='store_true', help='find images recursively')
-    parser.add_argument('--save', action='store_true', help='save prediction result as an image')
-    parser.add_argument('--count', type=int, default=0, help='count for save images')
+    parser.add_argument('--save-count', type=int, default=0, help='count for save images')
     args = parser.parse_args()
     if args.model != '':
         config.pretrained_model_path = args.model
+    if args.type != '':
+        config.input_type = args.type
     denoising_model = DenoisingModel(config=config)
     if args.predict:
-        denoising_model.predict_images(image_path=args.path, dataset=args.dataset, save_count=args.count if args.save else 0, recursive=args.r)
+        denoising_model.predict_images(image_path=args.path, dataset=args.dataset, save_count=args.save_count, recursive=args.r)
     elif args.evaluate:
         denoising_model.evaluate(image_path=args.path, dataset=args.dataset, recursive=args.r)
     else:
