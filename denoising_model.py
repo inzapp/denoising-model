@@ -285,7 +285,7 @@ class DenoisingModel:
                 if self.training_view:
                     self.training_view_function()
                 if iteration_count % self.save_interval == 0:
-                    self.model.save(f'{self.checkpoint_path}/denoising_ae_{iteration_count}_iter.h5', include_optimizer=False)
+                    self.model.save(f'{self.checkpoint_path}/dn_{iteration_count}_iter.h5', include_optimizer=False)
                 if iteration_count == self.iterations:
                     print('\ntrain end successfully')
                     return
