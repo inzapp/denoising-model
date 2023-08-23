@@ -35,11 +35,11 @@ if __name__ == '__main__':
         validation_image_path='/train_data/coco/validation',
         input_rows=256,
         input_cols=256,
-        input_type='rgb',  # available types : [gray, rgb, nv12, nv21]
+        input_type='gray',  # available types : [gray, rgb, nv12, nv21]
         lr=0.0003,
         warm_up=0.1,
-        stddev=30.0,
         batch_size=2,
+        max_noise=30,
         iterations=100000,
         save_interval=10000,
         training_view=False)

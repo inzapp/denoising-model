@@ -49,7 +49,7 @@ class TrainingConfig:
                  input_type='gray',
                  lr=0.001,
                  warm_up=0.1,
-                 stddev=25.0,
+                 max_noise=30,
                  batch_size=2,
                  iterations=100000,
                  save_interval=5000,
@@ -62,7 +62,7 @@ class TrainingConfig:
         self.input_type = input_type
         self.lr = lr
         self.warm_up = warm_up
-        self.stddev = stddev
+        self.max_noise = max_noise
         self.batch_size = batch_size
         self.iterations = iterations
         self.save_interval = save_interval
@@ -79,7 +79,7 @@ class DenoisingModel:
         self.input_type = config.input_type
         self.lr = config.lr
         self.warm_up = config.warm_up
-        self.stddev = config.stddev
+        self.max_noise = config.max_noise
         self.batch_size = config.batch_size
         self.save_interval = config.save_interval
         self.iterations = config.iterations
@@ -116,7 +116,7 @@ class DenoisingModel:
             input_shape=self.input_shape,
             input_type=self.input_type,
             batch_size=self.batch_size,
-            stddev=self.stddev)
+            max_noise=self.max_noise)
 
     def is_valid_path(self, path):
         return os.path.exists(path) and os.path.isdir(path)
@@ -253,7 +253,7 @@ class DenoisingModel:
             input_shape=self.input_shape,
             input_type=self.input_type,
             batch_size=1,
-            stddev=self.stddev)
+            max_noise=self.max_noise)
 
         cnt = 0
         psnr_sum = 0.0
