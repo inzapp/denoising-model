@@ -26,7 +26,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 import os
 import cv2
+import warnings
 import numpy as np
+import silence_tensorflow.auto
 import tensorflow as tf
 
 from glob import glob
@@ -82,6 +84,7 @@ class DenoisingModel:
         self.save_interval = config.save_interval
         self.iterations = config.iterations
         self.training_view = config.training_view
+        warnings.filterwarnings(action='ignore')
 
         self.checkpoint_path = 'checkpoint'
         self.live_view_previous_time = time()
