@@ -84,8 +84,8 @@ class DataGenerator:
         batch_x, batch_y = [], []
         for f in fs:
             img, img_noise = f.result()
-            batch_x.append(self.normalize(np.asarray(img).reshape(self.input_shape)))
-            batch_y.append(self.normalize(np.asarray(img_noise).reshape(self.input_shape)))
+            batch_x.append(self.normalize(np.asarray(img_noise).reshape(self.input_shape)))
+            batch_y.append(self.normalize(np.asarray(img).reshape(self.input_shape)))
         batch_x = np.asarray(batch_x).astype(self.dtype)
         batch_y = np.asarray(batch_y).astype(self.dtype)
         return batch_x, batch_y, self.yuv_mask, self.num_yuv_pos
