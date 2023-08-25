@@ -298,8 +298,10 @@ class DenoisingModel:
                 y = self.graph_forward(self.model, batch_x)
                 bgr_true = data_generator.convert_yuv3ch2bgr(data_generator.denormalize(batch_x[0]), yuv_type=self.input_type)
                 bgr_pred = data_generator.convert_yuv3ch2bgr(data_generator.denormalize(np.asarray(y[0])), yuv_type=self.input_type)
-                mse = np.mean(np.mean(((bgr_true / 255.0) - (bgr_pred / 255.0)) ** 2.0))
-                ssim = tf.image.ssim(bgr_true, bgr_pred, 255.0)
+                bgr_true = data_generator.normalize(bgr_true)
+                bgr_pred = data_generator.normalize(bgr_pred)
+                mse = np.mean((bgr_true - bgr_pred) ** 2.0)
+                ssim = tf.image.ssim(bgr_true, bgr_pred, 1.0)
             else:
                 mse, ssim = self.calculate_mse_ssim(self.model, batch_x, batch_y)
             psnr_sum += self.psnr(mse)
