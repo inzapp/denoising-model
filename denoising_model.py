@@ -26,6 +26,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 import os
 import cv2
+import random
 import warnings
 import numpy as np
 import shutil as sh
@@ -73,7 +74,7 @@ class TrainingConfig:
 
 
 class DenoisingModel:
-    def __init__(self, config):
+    def __init__(self, config, training):
         assert config.save_interval >= 1000
         self.pretrained_model_path = config.pretrained_model_path
         self.train_image_path = config.train_image_path
@@ -93,6 +94,8 @@ class DenoisingModel:
         self.checkpoint_path = None
         self.pretrained_iteration_count = 0
         self.live_view_previous_time = time()
+        if not training:
+            self.set_global_seed()
 
         if not self.is_valid_path(self.train_image_path):
             print(f'train image path is not valid : {self.train_image_path}')
@@ -123,6 +126,12 @@ class DenoisingModel:
             input_type=self.input_type,
             batch_size=self.batch_size,
             max_noise=self.max_noise)
+
+    def set_global_seed(self, seed=42):
+        random.seed(seed)
+        np.random.seed(seed)
+        os.environ['PYTHONHASHSEED'] = str(seed)
+        tf.random.set_seed(seed)
 
     def parse_pretrained_iteration_count(self, pretrained_model_path):
         iteration_count = 0
@@ -282,7 +291,6 @@ class DenoisingModel:
             print(f'no images found')
             return
 
-        np.random.seed(42)
         data_generator = DataGenerator(
             image_paths=image_paths,
             input_shape=self.input_shape,
