@@ -91,6 +91,7 @@ class DenoisingModel:
         warnings.filterwarnings(action='ignore')
 
         self.checkpoint_path = None
+        self.pretrained_iteration_count = 0
         self.live_view_previous_time = time()
 
         if not self.is_valid_path(self.train_image_path):
@@ -113,6 +114,7 @@ class DenoisingModel:
 
         if self.pretrained_model_path != '':
             self.model, self.input_shape = self.load_model(self.pretrained_model_path)
+            self.pretrained_iteration_count = self.parse_pretrained_iteration_count(self.pretrained_model_path)
         else:
             self.model = Model(input_shape=self.input_shape).build()
         self.data_generator = DataGenerator(
@@ -121,6 +123,18 @@ class DenoisingModel:
             input_type=self.input_type,
             batch_size=self.batch_size,
             max_noise=self.max_noise)
+
+    def parse_pretrained_iteration_count(self, pretrained_model_path):
+        iteration_count = 0
+        sp = f'{os.path.basename(pretrained_model_path)[:-3]}'.split('_')
+        for i in range(len(sp)):
+            if sp[i] == 'iter' and i > 0:
+                try:
+                    iteration_count = int(sp[i-1])
+                except:
+                    pass
+                break
+        return iteration_count
 
     def make_checkpoint_dir(self):
         os.makedirs(self.checkpoint_path, exist_ok=True)
@@ -306,7 +320,7 @@ class DenoisingModel:
         self.model.summary()
         print(f'\ntrain on {len(self.train_image_paths)} samples.')
         print('start training')
-        iteration_count = 0
+        iteration_count = self.pretrained_iteration_count
         optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr)
         lr_scheduler = LRScheduler(lr=self.lr, iterations=self.iterations, warm_up=self.warm_up, policy='step')
         is_yuv = self.input_type in ['nv12', 'nv21']
