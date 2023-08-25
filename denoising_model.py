@@ -182,14 +182,13 @@ class DenoisingModel:
             y_pred = model(x, training=True)
             loss = tf.abs(y_true - y_pred)
             mse = tf.reduce_mean(tf.square(loss))
-            ssim = tf.reduce_mean(tf.image.ssim(y_true, y_pred, 1.0))
             if is_yuv:
                 loss = tf.reduce_sum(loss) / (num_yuv_pos * tf.cast(tf.shape(x)[0], y_pred.dtype))
             else:
                 loss = tf.reduce_mean(loss)
         gradients = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        return loss, mse, ssim
+        return loss, mse
 
     @tf.function
     def calculate_mse_ssim(self, model, x, y_true):
@@ -346,9 +345,9 @@ class DenoisingModel:
         while True:
             for batch_x, batch_y, mask, num_pos in self.data_generator:
                 lr_scheduler.update(optimizer, iteration_count)
-                loss, mse, ssim = self.compute_gradient(self.model, optimizer, batch_x, batch_y, mask, num_pos, is_yuv)
+                loss, mse = self.compute_gradient(self.model, optimizer, batch_x, batch_y, mask, num_pos, is_yuv)
                 iteration_count += 1
-                print(f'\r[iteration_count : {iteration_count:6d}] loss : {loss:>8.4f}, ssim : {ssim:.4f}, psnr : {self.psnr(mse):.2f}', end='')
+                print(f'\r[iteration_count : {iteration_count:6d}] loss : {loss:>8.4f}, psnr : {self.psnr(mse):.2f}', end='')
                 if self.training_view:
                     self.training_view_function()
                 if iteration_count % 2000 == 0:
