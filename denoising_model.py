@@ -296,7 +296,7 @@ class DenoisingModel:
         for batch_x, batch_y, mask, num_pos in tqdm(data_generator):
             if self.input_type in ['nv12', 'nv21']:
                 y = self.graph_forward(self.model, batch_x)
-                bgr_true = data_generator.convert_yuv3ch2bgr(data_generator.denormalize(batch_x[0]), yuv_type=self.input_type)
+                bgr_true = data_generator.convert_yuv3ch2bgr(data_generator.denormalize(batch_y[0]), yuv_type=self.input_type)
                 bgr_pred = data_generator.convert_yuv3ch2bgr(data_generator.denormalize(np.asarray(y[0])), yuv_type=self.input_type)
                 bgr_true = data_generator.normalize(bgr_true)
                 bgr_pred = data_generator.normalize(bgr_pred)
