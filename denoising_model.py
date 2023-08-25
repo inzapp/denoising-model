@@ -138,7 +138,7 @@ class DenoisingModel:
             y_pred = model(x, training=True)
             loss = tf.abs(y_true - y_pred)
             mse = tf.reduce_mean(tf.square(loss))
-            ssim = 1.0 - tf.reduce_mean(tf.image.ssim(y_true, y_pred, 1.0))
+            ssim = tf.reduce_mean(tf.image.ssim(y_true, y_pred, 1.0))
             if is_yuv:
                 loss = tf.reduce_sum(loss) / (num_yuv_pos * tf.cast(tf.shape(x)[0], y_pred.dtype))
             else:
@@ -153,7 +153,7 @@ class DenoisingModel:
             y_pred = model(x, training=False)
             loss = tf.abs(y_true - y_pred)
             mse = tf.reduce_mean(tf.square(loss))
-            ssim = 1.0 - tf.reduce_mean(tf.image.ssim(y_true, y_pred, 1.0))
+            ssim = tf.reduce_mean(tf.image.ssim(y_true, y_pred, 1.0))
         return mse, ssim
 
     @tf.function
