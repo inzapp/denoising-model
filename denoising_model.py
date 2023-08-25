@@ -28,6 +28,7 @@ import os
 import cv2
 import warnings
 import numpy as np
+import shutil as sh
 import silence_tensorflow.auto
 import tensorflow as tf
 
@@ -47,6 +48,7 @@ class TrainingConfig:
                  input_rows=256,
                  input_cols=256,
                  input_type='gray',
+                 model_name='model',
                  lr=0.001,
                  warm_up=0.1,
                  max_noise=30,
@@ -60,6 +62,7 @@ class TrainingConfig:
         self.input_rows = input_rows
         self.input_cols = input_cols
         self.input_type = input_type
+        self.model_name = model_name
         self.lr = lr
         self.warm_up = warm_up
         self.max_noise = max_noise
@@ -77,6 +80,7 @@ class DenoisingModel:
         self.validation_image_path = config.validation_image_path
         self.input_shape = (config.input_rows, config.input_cols, 1 if config.input_type == 'gray' else 3)
         self.input_type = config.input_type
+        self.model_name = config.model_name
         self.lr = config.lr
         self.warm_up = config.warm_up
         self.max_noise = config.max_noise
@@ -86,7 +90,7 @@ class DenoisingModel:
         self.training_view = config.training_view
         warnings.filterwarnings(action='ignore')
 
-        self.checkpoint_path = 'checkpoint'
+        self.checkpoint_path = None
         self.live_view_previous_time = time()
 
         if not self.is_valid_path(self.train_image_path):
@@ -117,6 +121,23 @@ class DenoisingModel:
             input_type=self.input_type,
             batch_size=self.batch_size,
             max_noise=self.max_noise)
+
+    def make_checkpoint_dir(self):
+        os.makedirs(self.checkpoint_path, exist_ok=True)
+
+    def init_checkpoint_dir(self):
+        inc = 0
+        while True:
+            if inc == 0:
+                new_checkpoint_path = f'checkpoint/{self.model_name}'
+            else:
+                new_checkpoint_path = f'checkpoint/{self.model_name}_{inc}'
+            if os.path.exists(new_checkpoint_path) and os.path.isdir(new_checkpoint_path):
+                inc += 1
+            else:
+                break
+        self.checkpoint_path = new_checkpoint_path
+        self.make_checkpoint_dir()
 
     def is_valid_path(self, path):
         return os.path.exists(path) and os.path.isdir(path)
@@ -247,7 +268,7 @@ class DenoisingModel:
             print(f'no images found')
             return
 
-        np.random.seed(0)
+        np.random.seed(42)
         data_generator = DataGenerator(
             image_paths=image_paths,
             input_shape=self.input_shape,
@@ -270,15 +291,27 @@ class DenoisingModel:
         avg_ssim = ssim_sum / float(cnt)
         print(f'\nssim : {ssim:.4f}, psnr : {psnr:.2f}')
 
+    def save_model(self, iteration_count):
+        self.make_checkpoint_dir()
+        save_path = f'{self.checkpoint_path}/model_{iteration_count}_iter.h5'
+        self.model.save(save_path, include_optimizer=False)
+        backup_path = f'{save_path}.bak'
+        sh.move(save_path, backup_path)
+        for last_model_path in glob(f'{self.checkpoint_path}/model_*_iter.h5'):
+            os.remove(last_model_path)
+        sh.move(backup_path, save_path)
+        return save_path
+
     def train(self):
         self.model.summary()
         print(f'\ntrain on {len(self.train_image_paths)} samples.')
         print('start training')
         iteration_count = 0
-        os.makedirs(self.checkpoint_path, exist_ok=True)
         optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr)
         lr_scheduler = LRScheduler(lr=self.lr, iterations=self.iterations, warm_up=self.warm_up, policy='step')
         is_yuv = self.input_type in ['nv12', 'nv21']
+        self.init_checkpoint_dir()
+        print(f'checkpoint path : {self.checkpoint_path}')
         while True:
             for batch_x, batch_y, mask, num_pos in self.data_generator:
                 lr_scheduler.update(optimizer, iteration_count)
@@ -287,8 +320,8 @@ class DenoisingModel:
                 print(f'\r[iteration_count : {iteration_count:6d}] loss : {loss:>8.4f}, ssim : {ssim:.4f}, psnr : {self.psnr(mse):.2f}', end='')
                 if self.training_view:
                     self.training_view_function()
-                if iteration_count % self.save_interval == 0:
-                    self.model.save(f'{self.checkpoint_path}/dn_{iteration_count}_iter.h5', include_optimizer=False)
+                if iteration_count % 2000 == 0:
+                    self.save_model(iteration_count)
                 if iteration_count == self.iterations:
                     print('\ntrain end successfully')
                     return
