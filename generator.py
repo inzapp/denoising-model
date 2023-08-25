@@ -117,7 +117,7 @@ class DataGenerator:
 
     def convert_bgr2yuv3ch(self, img, yuv_type):
         assert yuv_type in ['nv12', 'nv21']
-        h, w, c = img.shape
+        h, w = img.shape[:2]
         new_img = np.zeros(shape=img.shape, dtype=np.uint8)
         yuv = cv2.cvtColor(img, cv2.COLOR_BGR2YUV_YV12)
         y = yuv[:h]
@@ -139,7 +139,7 @@ class DataGenerator:
         return new_yuv
 
     def convert_yuv3ch2bgr(self, yuv, yuv_type):
-        h, w, c = yuv.shape
+        h, w = yuv.shape[:2]
         y = yuv[:, :, 0]
         uv_or_vu = yuv[:, :, 1][0:h//2, 0:w]
         yuv = np.vstack((y, uv_or_vu))

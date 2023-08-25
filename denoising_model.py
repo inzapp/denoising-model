@@ -294,7 +294,14 @@ class DenoisingModel:
         psnr_sum = 0.0
         ssim_sum = 0.0
         for batch_x, batch_y, mask, num_pos in tqdm(data_generator):
-            mse, ssim = self.calculate_mse_ssim(self.model, batch_x, batch_y)
+            if self.input_type in ['nv12', 'nv21']:
+                y = self.graph_forward(self.model, batch_x)
+                bgr_true = data_generator.convert_yuv3ch2bgr(data_generator.denormalize(batch_x[0]), yuv_type=self.input_type)
+                bgr_pred = data_generator.convert_yuv3ch2bgr(data_generator.denormalize(np.asarray(y[0])), yuv_type=self.input_type)
+                mse = np.mean(np.mean(((bgr_true / 255.0) - (bgr_pred / 255.0)) ** 2.0))
+                ssim = tf.image.ssim(bgr_true, bgr_pred, 255.0)
+            else:
+                mse, ssim = self.calculate_mse_ssim(self.model, batch_x, batch_y)
             psnr_sum += self.psnr(mse)
             ssim_sum += ssim
             psnr = self.psnr(mse)
