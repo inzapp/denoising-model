@@ -54,10 +54,8 @@ class DataGenerator:
             A.GaussianBlur(p=0.5, blur_limit=(5, 5))
         ])
         self.transform_noise = A.Compose([
-            A.ImageCompression(p=0.5, quality_lower=75),
-            A.ISONoise(p=0.5, color_shift=(0.01, 0.05), intensity=(0.1, 0.75)),  # must be rgb image
-            A.GaussNoise(p=0.5, var_limit=(100.0, 100.0)),
-            A.MultiplicativeNoise(p=0.5, multiplier=(0.8, 1.2), elementwise=True)
+            A.ImageCompression(p=0.5, quality_lower=10, quality_upper=30),
+            A.GaussNoise(p=1.0, var_limit=(0.0, 100.0)),
         ])
         if input_type in ['nv12', 'nv21']:
             self.yuv_mask = self.make_yuv_mask()
@@ -149,6 +147,14 @@ class DataGenerator:
             bgr = np.asarray(cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_NV21))
         return bgr
 
+    def add_noise(self, img):
+        img_noise = np.array(img).astype('float32')
+        noise_power = np.random.uniform() * self.max_noise
+        img_noise += np.random.uniform(-noise_power, noise_power, size=img.shape)
+        img_noise -= (img_noise - 128.0) * np.random.uniform() * 0.1
+        img_noise = np.clip(img_noise, 0.0, 255.0).astype('uint8')
+        return img_noise
+
     def load_image(self, image_path):
         if np.random.uniform() < 0.0:
             background_color = np.random.uniform(size=self.input_shape[-1]) * 0.25
@@ -175,14 +181,10 @@ class DataGenerator:
             img = self.resize(img, (self.input_shape[1], self.input_shape[0]))
             if self.input_type == 'rgb':
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
+        img_noise = self.add_noise(img)
         if self.input_type in ['nv12', 'nv21']:
             img = self.convert_bgr2yuv3ch(img, self.input_type)
-
-        img_noise = np.array(img).astype('float32')
-        noise_power = np.random.uniform() * self.max_noise
-        img_noise += np.random.uniform(-noise_power, noise_power, size=img.shape)
-        img_noise = np.clip(img_noise, 0.0, 255.0).astype('uint8')
+            img_noise = self.convert_bgr2yuv3ch(img_noise, self.input_type)
         return img, img_noise
 
     # def load_image(self, image_path):
