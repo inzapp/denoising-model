@@ -191,15 +191,6 @@ class DenoisingModel:
         return loss, mse
 
     @tf.function
-    def calculate_mse_ssim(self, model, x, y_true):
-        with tf.GradientTape() as tape:
-            y_pred = model(x, training=False)
-            loss = tf.abs(y_true - y_pred)
-            mse = tf.reduce_mean(tf.square(loss))
-            ssim = tf.reduce_mean(tf.image.ssim(y_true, y_pred, 1.0))
-        return mse, ssim
-
-    @tf.function
     def graph_forward(self, model, x):
         return model(x, training=False)
 
@@ -263,7 +254,7 @@ class DenoisingModel:
     def psnr(self, mse):
         return 20 * np.log10(1.0 / np.sqrt(mse)) if mse!= 0.0 else 100.0
 
-    def evaluate(self, dataset='validation', image_path='', recursive=False):
+    def evaluate(self, dataset='validation', image_path='', recursive=False, skip_model_forward=False):
         image_paths = []
         if image_path != '':
             if not os.path.exists(image_path):
@@ -289,8 +280,8 @@ class DenoisingModel:
         psnr_sum = 0.0
         ssim_sum = 0.0
         for batch_x, batch_y, mask, num_pos in tqdm(data_generator):
+            y = batch_x if skip_model_forward else self.graph_forward(self.model, batch_x)
             if self.input_type in ['nv12', 'nv21']:
-                y = self.graph_forward(self.model, batch_x)
                 bgr_true = data_generator.convert_yuv3ch2bgr(data_generator.denormalize(batch_y[0]), yuv_type=self.input_type)
                 bgr_pred = data_generator.convert_yuv3ch2bgr(data_generator.denormalize(np.asarray(y[0])), yuv_type=self.input_type)
                 bgr_true = data_generator.normalize(bgr_true)
@@ -298,7 +289,10 @@ class DenoisingModel:
                 mse = np.mean((bgr_true - bgr_pred) ** 2.0)
                 ssim = tf.image.ssim(bgr_true, bgr_pred, 1.0)
             else:
-                mse, ssim = self.calculate_mse_ssim(self.model, batch_x, batch_y)
+                y_true = batch_y[0]
+                y_pred = np.asarray(y[0])
+                mse = np.mean((y_true - y_pred) ** 2.0)
+                ssim = tf.image.ssim(y_true, y_pred, 1.0)
             psnr = self.psnr(mse)
             psnr_sum += psnr
             ssim_sum += ssim
