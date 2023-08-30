@@ -299,15 +299,15 @@ class DenoisingModel:
                 ssim = tf.image.ssim(bgr_true, bgr_pred, 1.0)
             else:
                 mse, ssim = self.calculate_mse_ssim(self.model, batch_x, batch_y)
-            psnr_sum += self.psnr(mse)
-            ssim_sum += ssim
             psnr = self.psnr(mse)
+            psnr_sum += psnr
+            ssim_sum += ssim
             cnt += 1
             if cnt == len(image_paths):
                 break
         avg_psnr = psnr_sum / float(cnt)
         avg_ssim = ssim_sum / float(cnt)
-        print(f'\nssim : {ssim:.4f}, psnr : {psnr:.2f}')
+        print(f'\nssim : {avg_ssim:.4f}, psnr : {avg_psnr:.2f}')
 
     def save_model(self, iteration_count):
         self.make_checkpoint_dir()
