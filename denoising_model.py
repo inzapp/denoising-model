@@ -165,8 +165,8 @@ class DenoisingModel:
     def is_valid_path(self, path):
         return os.path.exists(path) and os.path.isdir(path)
 
-    def init_image_paths(self, image_path):
-        return glob(f'{image_path}/**/*.jpg', recursive=True)
+    def init_image_paths(self, image_path, recursive=True):
+        return glob(f'{image_path}/**/*.jpg' if recursive else f'{image_path}/*.jpg', recursive=recursive)
 
     def load_model(self, model_path):
         if not (os.path.exists(model_path) and os.path.isfile(model_path)):
@@ -231,16 +231,10 @@ class DenoisingModel:
             if not os.path.exists(image_path):
                 print(f'image path not found : {image_path}')
                 return
-            if os.path.isdir(image_path):
-                image_paths = glob(f'{image_path}/**/*.jpg' if recursive else f'{image_path}/*.jpg', recursive=recursive)
-            else:
-                image_paths = [image_path]
+            image_paths = self.init_image_paths(image_path, recursive=recursive) if os.path.isdir(image_path) else [image_path]
         else:
             assert dataset in ['train', 'validation']
-            if dataset == 'train':
-                image_paths = self.train_image_paths
-            else:
-                image_paths = self.validation_image_paths
+            image_paths = self.train_image_paths if dataset == 'train' else self.validation_image_paths
 
         if len(image_paths) == 0:
             print(f'no images found')
@@ -275,16 +269,10 @@ class DenoisingModel:
             if not os.path.exists(image_path):
                 print(f'image path not found : {image_path}')
                 return
-            if os.path.isdir(image_path):
-                image_paths = glob(f'{image_path}/**/*.jpg' if recursive else f'{image_path}/*.jpg', recursive=recursive)
-            else:
-                image_paths = [image_path]
+            image_paths = self.init_image_paths(image_path, recursive=recursive) if os.path.isdir(image_path) else [image_path]
         else:
             assert dataset in ['train', 'validation']
-            if dataset == 'train':
-                image_paths = self.train_image_paths
-            else:
-                image_paths = self.validation_image_paths
+            image_paths = self.train_image_paths if dataset == 'train' else self.validation_image_paths
 
         if len(image_paths) == 0:
             print(f'no images found')
