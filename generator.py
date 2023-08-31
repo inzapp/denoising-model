@@ -132,7 +132,7 @@ class DataGenerator:
         img_noise = np.array(img).astype('float32')
         noise_power = np.random.uniform() * self.max_noise
         img_noise += np.random.uniform(-noise_power, noise_power, size=img.shape)
-        img_noise -= (img_noise - 128.0) * np.random.uniform() * 0.1
+        # img_noise -= (img_noise - 128.0) * np.random.uniform() * 0.1
         img_noise = np.clip(img_noise, 0.0, 255.0).astype('uint8')
         return img_noise
 
