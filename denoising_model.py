@@ -76,11 +76,14 @@ class TrainingConfig:
 class DenoisingModel:
     def __init__(self, config, training):
         assert config.save_interval >= 1000
+        assert config.input_rows % 8 == 0
+        assert config.input_cols % 8 == 0
         self.pretrained_model_path = config.pretrained_model_path
         self.train_image_path = config.train_image_path
         self.validation_image_path = config.validation_image_path
-        self.input_shape = (config.input_rows, config.input_cols, 1 if config.input_type == 'gray' else 3)
         self.input_type = config.input_type
+        self.user_input_shape = (config.input_rows, config.input_cols, 3 if config.input_type == 'rgb' else 1)
+        self.model_input_shape = self.convert_to_model_input_shape(self.user_input_shape)
         self.model_name = config.model_name
         self.lr = config.lr
         self.warm_up = config.warm_up
@@ -116,16 +119,24 @@ class DenoisingModel:
             exit(0)
 
         if self.pretrained_model_path != '':
-            self.model, self.input_shape = self.load_model(self.pretrained_model_path)
+            self.model, self.user_input_shape, self.model_input_shape = self.load_model(self.pretrained_model_path)
             self.pretrained_iteration_count = self.parse_pretrained_iteration_count(self.pretrained_model_path)
         else:
-            self.model = Model(input_shape=self.input_shape).build()
+            self.model = Model(input_shape=self.model_input_shape).build()
+
         self.data_generator = DataGenerator(
             image_paths=self.train_image_paths,
-            input_shape=self.input_shape,
+            user_input_shape=self.user_input_shape,
+            model_input_shape=self.model_input_shape,
             input_type=self.input_type,
             batch_size=self.batch_size,
             max_noise=self.max_noise)
+
+    def convert_to_model_input_shape(self, user_input_shape):
+        if self.input_type in ['nv12', 'nv21']:
+            return (int(user_input_shape[0] * 1.5), user_input_shape[1], user_input_shape[2])
+        else:
+            return user_input_shape
 
     def set_global_seed(self, seed=42):
         random.seed(seed)
@@ -173,19 +184,20 @@ class DenoisingModel:
             print(f'file not found : {model_path}')
             exit(0)
         model = tf.keras.models.load_model(model_path, compile=False)
-        input_shape = model.input_shape[1:]
-        return model, input_shape
+        model_input_shape = model.input_shape[1:]
+        if self.input_type in ['nv12', 'nv21']:
+            user_input_shape = (model_input_shape[0] // 3 * 2, model_input_shape[1], model_input_shape[2])
+        else:
+            user_input_shape = model_input_shape
+        return model, user_input_shape, model_input_shape
 
     @tf.function
-    def compute_gradient(self, model, optimizer, x, y_true, yuv_mask, num_yuv_pos, is_yuv):
+    def compute_gradient(self, model, optimizer, x, y_true):
         with tf.GradientTape() as tape:
             y_pred = model(x, training=True)
-            loss = tf.abs(y_true - y_pred)
-            mse = tf.reduce_mean(tf.square(loss))
-            if is_yuv:
-                loss = tf.reduce_sum(loss) / (num_yuv_pos * tf.cast(tf.shape(x)[0], y_pred.dtype))
-            else:
-                loss = tf.reduce_mean(loss)
+            abs_error = tf.abs(y_true - y_pred)
+            loss = tf.reduce_mean(abs_error)
+            mse = tf.reduce_mean(tf.square(abs_error))
         gradients = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         return loss, mse
@@ -195,26 +207,29 @@ class DenoisingModel:
         return model(x, training=False)
 
     def predict(self, img, input_image_concat=True):
+        view_channel = self.user_input_shape[-1]
         if self.input_type in ['nv12', 'nv21']:
-            origin_bgr = self.data_generator.convert_yuv3ch2bgr(img, self.input_type)
+            origin_img = self.data_generator.convert_yuv420sp2bgr(img)
+            view_channel = 3
         elif self.input_type == 'rgb':
-            origin_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            origin_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         else:
-            origin_bgr = img
+            origin_img = img
+        view_shape = self.user_input_shape[:2] + (view_channel,)
 
-        x = DataGenerator.normalize(img).reshape((1,) + self.input_shape)
-        output = np.array(self.graph_forward(self.model, x)).reshape(self.input_shape)
-        decoded_image = DataGenerator.denormalize(output)
+        x = DataGenerator.normalize(img).reshape((1,) + self.model_input_shape)
+        output = np.array(self.graph_forward(self.model, x)).reshape(self.model_input_shape)
+        decoded_img = DataGenerator.denormalize(output)
         if self.input_type in ['nv12', 'nv21']:
-            decoded_image = self.data_generator.convert_yuv3ch2bgr(decoded_image, self.input_type)
+            decoded_img = self.data_generator.convert_yuv420sp2bgr(decoded_img)
         elif self.input_type == 'rgb':
-            decoded_image = cv2.cvtColor(decoded_image, cv2.COLOR_RGB2BGR)
+            decoded_img = cv2.cvtColor(decoded_img, cv2.COLOR_RGB2BGR)
 
         if input_image_concat:
-            origin_bgr = origin_bgr.reshape(self.input_shape)
-            decoded_image = decoded_image.reshape(self.input_shape)
-            decoded_image = np.concatenate((origin_bgr, decoded_image), axis=1)
-        return decoded_image
+            origin_img = origin_img.reshape(view_shape)
+            decoded_img = decoded_img.reshape(view_shape)
+            decoded_img = np.concatenate((origin_img, decoded_img), axis=1)
+        return decoded_img
 
     def predict_images(self, image_path='', dataset='validation', save_count=0, recursive=False):
         image_paths = []
@@ -271,7 +286,8 @@ class DenoisingModel:
 
         data_generator = DataGenerator(
             image_paths=image_paths,
-            input_shape=self.input_shape,
+            user_input_shape=self.user_input_shape,
+            model_input_shape=self.model_input_shape,
             input_type=self.input_type,
             batch_size=1,
             max_noise=self.max_noise)
@@ -279,11 +295,11 @@ class DenoisingModel:
         cnt = 0
         psnr_sum = 0.0
         ssim_sum = 0.0
-        for batch_x, batch_y, mask, num_pos in tqdm(data_generator):
+        for batch_x, batch_y in tqdm(data_generator):
             y = batch_x if skip_model_forward else self.graph_forward(self.model, batch_x)
             if self.input_type in ['nv12', 'nv21']:
-                bgr_true = data_generator.convert_yuv3ch2bgr(data_generator.denormalize(batch_y[0]), yuv_type=self.input_type)
-                bgr_pred = data_generator.convert_yuv3ch2bgr(data_generator.denormalize(np.asarray(y[0])), yuv_type=self.input_type)
+                bgr_true = data_generator.convert_yuv420sp2bgr(data_generator.denormalize(batch_y[0]))
+                bgr_pred = data_generator.convert_yuv420sp2bgr(data_generator.denormalize(np.asarray(y[0])))
                 bgr_true = data_generator.normalize(bgr_true)
                 bgr_pred = data_generator.normalize(bgr_pred)
                 mse = np.mean((bgr_true - bgr_pred) ** 2.0)
@@ -325,9 +341,9 @@ class DenoisingModel:
         self.init_checkpoint_dir()
         print(f'checkpoint path : {self.checkpoint_path}')
         while True:
-            for batch_x, batch_y, mask, num_pos in self.data_generator:
+            for batch_x, batch_y in self.data_generator:
                 lr_scheduler.update(optimizer, iteration_count)
-                loss, mse = self.compute_gradient(self.model, optimizer, batch_x, batch_y, mask, num_pos, is_yuv)
+                loss, mse = self.compute_gradient(self.model, optimizer, batch_x, batch_y)
                 iteration_count += 1
                 print(f'\r[iteration_count : {iteration_count:6d}] loss : {loss:>8.4f}, psnr : {self.psnr(mse):.2f}', end='')
                 if self.training_view:
