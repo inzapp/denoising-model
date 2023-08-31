@@ -187,6 +187,22 @@ class DataGenerator:
             img_noise = self.convert_bgr2yuv3ch(img_noise, self.input_type)
         return img, img_noise
 
+
+    # def load_image(self, image_path):  # check init_image_paths for gt data
+    #     def load(path):
+    #         data = np.fromfile(path, dtype=np.uint8)
+    #         img = cv2.imdecode(data, cv2.IMREAD_GRAYSCALE if self.input_type == 'gray' else cv2.IMREAD_COLOR)
+    #         img = self.resize(img, (self.input_shape[1], self.input_shape[0]))
+    #         if self.input_type == 'rgb':
+    #             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    #         elif self.input_type in ['nv12', 'nv21']:
+    #             img = self.convert_bgr2yuv3ch(img, self.input_type)
+    #         return img
+
+    #     img = load(image_path)
+    #     img_noise = load(image_path.replace('GT', 'NOISY'))
+    #     return img, img_noise
+
     # def load_image(self, image_path):
     #     if self.denoising_model or self.input_shape[-1] == 3:
     #         img = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_COLOR)  # ISONoise need rgb image
