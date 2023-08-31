@@ -45,6 +45,8 @@ if __name__ == '__main__':
         training_view=False)
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--rows', type=int, default=0, help='input rows for model')
+    parser.add_argument('--cols', type=int, default=0, help='input cols for model')
     parser.add_argument('--model', type=str, default='', help='pretrained model path')
     parser.add_argument('--type', type=str, default='', help='pretrained model input type : [gray, rgb, nv12, nv21]')
     parser.add_argument('--predict', action='store_true', help='prediction using given dataset')
@@ -55,6 +57,9 @@ if __name__ == '__main__':
     parser.add_argument('--r', action='store_true', help='find images recursively')
     parser.add_argument('--save-count', type=int, default=0, help='count for save images')
     args = parser.parse_args()
+    if args.rows > 0 and args.cols > 0:
+        config.input_rows = args.rows
+        config.input_cols = args.cols
     if args.model != '':
         config.pretrained_model_path = args.model
     if args.type != '':
