@@ -317,7 +317,7 @@ class DenoisingModel:
                 break
         avg_psnr = psnr_sum / float(cnt)
         avg_ssim = ssim_sum / float(cnt)
-        print(f'\nssim : {avg_ssim:.4f}, psnr : {avg_psnr:.2f}')
+        print(f'\npsnr : {avg_psnr:.2f}, ssim : {avg_ssim:.4f}')
 
     def save_model(self, iteration_count):
         self.make_checkpoint_dir()
