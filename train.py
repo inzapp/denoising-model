@@ -64,7 +64,7 @@ if __name__ == '__main__':
         config.pretrained_model_path = args.model
     if args.type != '':
         config.input_type = args.type
-    denoising_model = DenoisingModel(config=config, training=not (args.predict or args.evaluate))
+    denoising_model = DenoisingModel(config=config, training=not (args.predict or args.evaluate or args.evaluate_raw))
     if args.predict:
         denoising_model.predict_images(image_path=args.path, dataset=args.dataset, save_count=args.save_count, recursive=args.r)
     elif args.evaluate or args.evaluate_raw:
