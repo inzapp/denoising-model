@@ -311,8 +311,8 @@ class DenoisingModel:
             psnr = self.psnr(mse)
             psnr_sum += psnr
             ssim_sum += ssim
-        avg_psnr = psnr_sum / float(cnt)
-        avg_ssim = ssim_sum / float(cnt)
+        avg_psnr = psnr_sum / float(len(image_paths))
+        avg_ssim = ssim_sum / float(len(image_paths))
         print(f'\npsnr : {avg_psnr:.2f}, ssim : {avg_ssim:.4f}')
 
     def save_model(self, iteration_count):
