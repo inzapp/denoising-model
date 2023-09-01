@@ -26,12 +26,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 import cv2
 import numpy as np
+import tensorflow as tf
 import albumentations as A
 
 from concurrent.futures.thread import ThreadPoolExecutor
 
 
-class DataGenerator:
+class DataGenerator(tf.keras.utils.Sequence):
     def __init__(self,
                  image_paths,
                  user_input_shape,

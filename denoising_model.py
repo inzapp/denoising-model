@@ -292,7 +292,6 @@ class DenoisingModel:
             batch_size=1,
             max_noise=self.max_noise)
 
-        cnt = 0
         psnr_sum = 0.0
         ssim_sum = 0.0
         for batch_x, batch_y in tqdm(data_generator):
@@ -312,9 +311,6 @@ class DenoisingModel:
             psnr = self.psnr(mse)
             psnr_sum += psnr
             ssim_sum += ssim
-            cnt += 1
-            if cnt == len(image_paths):
-                break
         avg_psnr = psnr_sum / float(cnt)
         avg_ssim = ssim_sum / float(cnt)
         print(f'\npsnr : {avg_psnr:.2f}, ssim : {avg_ssim:.4f}')
