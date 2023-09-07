@@ -78,12 +78,10 @@ class DataGenerator(tf.keras.utils.Sequence):
         batch_y = np.asarray(batch_y).astype(self.dtype)
         return batch_x, batch_y
 
-    @staticmethod
-    def normalize(x):
+    def normalize(self, x):
         return np.clip(np.asarray(x).astype('float32') / 255.0, 0.0, 1.0)
 
-    @staticmethod
-    def denormalize(x):
+    def denormalize(self, x):
         return np.asarray(np.clip((x * 255.0), 0.0, 255.0)).astype('uint8')
 
     def next_image_path(self):

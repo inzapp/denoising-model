@@ -206,6 +206,7 @@ class DenoisingModel:
     def graph_forward(self, model, x):
         return model(x, training=False)
 
+    # input image : model input format image, output image : denoised bgr image
     def predict(self, img, input_image_concat=True):
         view_channel = self.user_input_shape[-1]
         if self.input_type in ['nv12', 'nv21']:
@@ -217,19 +218,19 @@ class DenoisingModel:
             origin_img = img
         view_shape = self.user_input_shape[:2] + (view_channel,)
 
-        x = DataGenerator.normalize(img).reshape((1,) + self.model_input_shape)
-        output = np.array(self.graph_forward(self.model, x)).reshape(self.model_input_shape)
-        decoded_img = DataGenerator.denormalize(output)
+        x = self.data_generator.normalize(img).reshape((1,) + self.model_input_shape)
+        y = np.array(self.graph_forward(self.model, x)).reshape(self.model_input_shape)
+        img_denoised = self.data_generator.denormalize(y)
         if self.input_type in ['nv12', 'nv21']:
-            decoded_img = self.data_generator.convert_yuv420sp2bgr(decoded_img)
+            img_denoised = self.data_generator.convert_yuv420sp2bgr(img_denoised)
         elif self.input_type == 'rgb':
-            decoded_img = cv2.cvtColor(decoded_img, cv2.COLOR_RGB2BGR)
+            img_denoised = cv2.cvtColor(img_denoised, cv2.COLOR_RGB2BGR)
 
         if input_image_concat:
             origin_img = origin_img.reshape(view_shape)
-            decoded_img = decoded_img.reshape(view_shape)
-            decoded_img = np.concatenate((origin_img, decoded_img), axis=1)
-        return decoded_img
+            img_denoised = img_denoised.reshape(view_shape)
+            img_denoised = np.concatenate((origin_img, img_denoised), axis=1)
+        return img_denoised
 
     def predict_images(self, image_path='', dataset='validation', save_count=0, recursive=False):
         image_paths = []
