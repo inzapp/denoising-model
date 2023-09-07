@@ -251,17 +251,17 @@ class DenoisingModel:
         os.makedirs(save_path, exist_ok=True)
         for path in image_paths:
             _, img_noise = self.data_generator.load_image(path)
-            decoded_image = self.predict(img_noise)
+            img_denoised = self.predict(img_noise)
             if save_count > 0:
                 basename = os.path.basename(path)
                 save_img_path = f'{save_path}/{basename}'
-                cv2.imwrite(save_img_path, decoded_image, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                cv2.imwrite(save_img_path, img_denoised, [cv2.IMWRITE_JPEG_QUALITY, 80])
                 cnt += 1
                 print(f'[{cnt} / {save_count}] save success : {save_img_path}')
                 if cnt == save_count:
                     break
             else:
-                cv2.imshow('decoded_image', decoded_image)
+                cv2.imshow('img_denoised', img_denoised)
                 key = cv2.waitKey(0)
                 if key == 27:
                     exit(0)
@@ -399,7 +399,7 @@ class DenoisingModel:
             self.live_view_previous_time = cur_time
             img_path = np.random.choice(self.validation_image_paths)
             img, img_noise = self.data_generator.load_image(img_path)
-            decoded_image = self.predict(img_noise)
-            cv2.imshow('training view', decoded_image)
+            img_denoised = self.predict(img_noise)
+            cv2.imshow('training view', img_denoised)
             cv2.waitKey(1)
 
