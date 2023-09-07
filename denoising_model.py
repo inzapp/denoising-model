@@ -206,8 +206,11 @@ class DenoisingModel:
     def graph_forward(self, model, x):
         return model(x, training=False)
 
+    def concat(self, images):
+        return np.concatenate(images, axis=1)
+
     # input image : model input format image, output image : denoised bgr image
-    def predict(self, img, input_image_concat=True):
+    def predict(self, img):
         view_channel = self.user_input_shape[-1]
         if self.input_type in ['nv12', 'nv21']:
             origin_img = self.data_generator.convert_yuv420sp2bgr(img)
@@ -225,11 +228,6 @@ class DenoisingModel:
             img_denoised = self.data_generator.convert_yuv420sp2bgr(img_denoised)
         elif self.input_type == 'rgb':
             img_denoised = cv2.cvtColor(img_denoised, cv2.COLOR_RGB2BGR)
-
-        if input_image_concat:
-            origin_img = origin_img.reshape(view_shape)
-            img_denoised = img_denoised.reshape(view_shape)
-            img_denoised = np.concatenate((origin_img, img_denoised), axis=1)
         return img_denoised
 
     def predict_images(self, image_path='', dataset='validation', save_count=0, recursive=False):
@@ -253,16 +251,19 @@ class DenoisingModel:
         for path in image_paths:
             _, img_noise = self.data_generator.load_image(path)
             img_denoised = self.predict(img_noise)
+            if self.input_type in ['nv12', 'nv21']:
+                img_noise = self.data_generator.convert_yuv420sp2bgr(img_noise)
+            img_concat = self.concat([img_noise, img_denoised])
             if save_count > 0:
                 basename = os.path.basename(path)
                 save_img_path = f'{save_path}/{basename}'
-                cv2.imwrite(save_img_path, img_denoised, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                cv2.imwrite(save_img_path, img_concat, [cv2.IMWRITE_JPEG_QUALITY, 80])
                 cnt += 1
                 print(f'[{cnt} / {save_count}] save success : {save_img_path}')
                 if cnt == save_count:
                     break
             else:
-                cv2.imshow('img_denoised', img_denoised)
+                cv2.imshow('img_denoised', img_concat)
                 key = cv2.waitKey(0)
                 if key == 27:
                     exit(0)
@@ -401,6 +402,9 @@ class DenoisingModel:
             img_path = np.random.choice(self.validation_image_paths)
             img, img_noise = self.data_generator.load_image(img_path)
             img_denoised = self.predict(img_noise)
-            cv2.imshow('training view', img_denoised)
+            if self.input_type in ['nv12', 'nv21']:
+                img_noise = self.data_generator.convert_yuv420sp2bgr(img_noise)
+            img_concat = self.concat([img_noise, img_denoised])
+            cv2.imshow('training view', img_concat)
             cv2.waitKey(1)
 
