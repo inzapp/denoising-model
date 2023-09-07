@@ -269,6 +269,52 @@ class DenoisingModel:
     def psnr(self, mse):
         return 20 * np.log10(1.0 / np.sqrt(mse)) if mse!= 0.0 else 100.0
 
+    # def evaluate(self, dataset='validation', image_path='', recursive=False, skip_model_forward=False):
+    #     image_paths = []
+    #     if image_path != '':
+    #         if not os.path.exists(image_path):
+    #             print(f'image path not found : {image_path}')
+    #             return
+    #         image_paths = self.init_image_paths(image_path, recursive=recursive) if os.path.isdir(image_path) else [image_path]
+    #     else:
+    #         assert dataset in ['train', 'validation']
+    #         image_paths = self.train_image_paths if dataset == 'train' else self.validation_image_paths
+
+    #     if len(image_paths) == 0:
+    #         print(f'no images found')
+    #         return
+
+    #     data_generator = DataGenerator(
+    #         image_paths=image_paths,
+    #         user_input_shape=self.user_input_shape,
+    #         model_input_shape=self.model_input_shape,
+    #         input_type=self.input_type,
+    #         batch_size=1,
+    #         max_noise=self.max_noise)
+
+    #     psnr_sum = 0.0
+    #     ssim_sum = 0.0
+    #     for batch_x, batch_y in tqdm(data_generator):
+    #         y = batch_x if skip_model_forward else self.graph_forward(self.model, batch_x)
+    #         if self.input_type in ['nv12', 'nv21']:
+    #             bgr_true = data_generator.convert_yuv420sp2bgr(data_generator.denormalize(batch_y[0]))
+    #             bgr_pred = data_generator.convert_yuv420sp2bgr(data_generator.denormalize(np.asarray(y[0])))
+    #             bgr_true = data_generator.normalize(bgr_true)
+    #             bgr_pred = data_generator.normalize(bgr_pred)
+    #             mse = np.mean((bgr_true - bgr_pred) ** 2.0)
+    #             ssim = tf.image.ssim(bgr_true, bgr_pred, 1.0)
+    #         else:
+    #             y_true = batch_y[0]
+    #             y_pred = np.asarray(y[0])
+    #             mse = np.mean((y_true - y_pred) ** 2.0)
+    #             ssim = tf.image.ssim(y_true, y_pred, 1.0)
+    #         psnr = self.psnr(mse)
+    #         psnr_sum += psnr
+    #         ssim_sum += ssim
+    #     avg_psnr = psnr_sum / float(len(image_paths))
+    #     avg_ssim = ssim_sum / float(len(image_paths))
+    #     print(f'\npsnr : {avg_psnr:.2f}, ssim : {avg_ssim:.4f}')
+
     def evaluate(self, dataset='validation', image_path='', recursive=False, skip_model_forward=False):
         image_paths = []
         if image_path != '':
@@ -284,30 +330,27 @@ class DenoisingModel:
             print(f'no images found')
             return
 
-        data_generator = DataGenerator(
-            image_paths=image_paths,
-            user_input_shape=self.user_input_shape,
-            model_input_shape=self.model_input_shape,
-            input_type=self.input_type,
-            batch_size=1,
-            max_noise=self.max_noise)
-
         psnr_sum = 0.0
         ssim_sum = 0.0
-        for batch_x, batch_y in tqdm(data_generator):
-            y = batch_x if skip_model_forward else self.graph_forward(self.model, batch_x)
-            if self.input_type in ['nv12', 'nv21']:
-                bgr_true = data_generator.convert_yuv420sp2bgr(data_generator.denormalize(batch_y[0]))
-                bgr_pred = data_generator.convert_yuv420sp2bgr(data_generator.denormalize(np.asarray(y[0])))
-                bgr_true = data_generator.normalize(bgr_true)
-                bgr_pred = data_generator.normalize(bgr_pred)
-                mse = np.mean((bgr_true - bgr_pred) ** 2.0)
-                ssim = tf.image.ssim(bgr_true, bgr_pred, 1.0)
+        for path in tqdm(image_paths):
+            img, img_noise = self.data_generator.load_image(path)
+            img_true = img
+
+            x = np.asarray(self.data_generator.normalize(img)).reshape((1,) + self.model_input_shape)
+            if skip_model_forward:
+                img_pred = img_noise
             else:
-                y_true = batch_y[0]
-                y_pred = np.asarray(y[0])
-                mse = np.mean((y_true - y_pred) ** 2.0)
-                ssim = tf.image.ssim(y_true, y_pred, 1.0)
+                y = self.graph_forward(self.model, x)[0]
+                img_pred = self.data_generator.denormalize(y)
+
+            if self.input_type in ['nv12', 'nv21']:
+                img_true = self.data_generator.convert_yuv420sp2bgr(img_true)
+                img_pred = self.data_generator.convert_yuv420sp2bgr(img_pred)
+
+            img_true_norm = self.data_generator.normalize(img_true)
+            img_pred_norm = self.data_generator.normalize(img_pred)
+            mse = np.mean((img_true_norm - img_pred_norm) ** 2.0)
+            ssim = tf.image.ssim(img_true_norm, img_pred_norm, 1.0)
             psnr = self.psnr(mse)
             psnr_sum += psnr
             ssim_sum += ssim
