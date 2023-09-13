@@ -49,9 +49,10 @@ if __name__ == '__main__':
     parser.add_argument('--cols', type=int, default=0, help='input cols for model')
     parser.add_argument('--model', type=str, default='', help='pretrained model path')
     parser.add_argument('--type', type=str, default='', help='pretrained model input type : [gray, rgb, nv12, nv21]')
-    parser.add_argument('--predict', action='store_true', help='prediction using given dataset')
+    parser.add_argument('--predict', action='store_true', help='predict using given noisy dataset')
+    parser.add_argument('--predict-gt', action='store_true', help='predict using given gt dataset')
     parser.add_argument('--evaluate', action='store_true', help='evaluate using given dataset')
-    parser.add_argument('--evaluate-raw', action='store_true', help='evaluate using given dataset without model forwarding')
+    parser.add_argument('--evaluate-gt', action='store_true', help='evaluate using given dataset without model forwarding')
     parser.add_argument('--dataset', type=str, default='validation', help='dataset for evaluate, train or validation available')
     parser.add_argument('--path', type=str, default='', help='image or video path for prediction or evaluation')
     parser.add_argument('--r', action='store_true', help='find images recursively')
@@ -64,11 +65,11 @@ if __name__ == '__main__':
         config.pretrained_model_path = args.model
     if args.type != '':
         config.input_type = args.type
-    denoising_model = DenoisingModel(config=config, training=not (args.predict or args.evaluate or args.evaluate_raw))
-    if args.predict:
-        denoising_model.predict_images(image_path=args.path, dataset=args.dataset, save_count=args.save_count, recursive=args.r)
-    elif args.evaluate or args.evaluate_raw:
-        denoising_model.evaluate(image_path=args.path, dataset=args.dataset, recursive=args.r, skip_model_forward=args.evaluate_raw)
+    denoising_model = DenoisingModel(config=config, training=not (args.predict or args.predict_gt or args.evaluate or args.evaluate_gt))
+    if args.predict or args.predict_gt:
+        denoising_model.predict_images(image_path=args.path, dataset=args.dataset, save_count=args.save_count, recursive=args.r, predict_gt=args.predict_gt)
+    elif args.evaluate or args.evaluate_gt:
+        denoising_model.evaluate(image_path=args.path, dataset=args.dataset, recursive=args.r, evaluate_gt=args.evaluate_gt)
     else:
         denoising_model.train()
 

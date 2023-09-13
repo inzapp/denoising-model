@@ -108,14 +108,19 @@ class DenoisingModel:
             print(f'validation image path is not valid : {self.validation_image_path}')
             exit(0)
 
-        self.train_image_paths = self.init_image_paths(self.train_image_path)
-        if len(self.train_image_paths) <= self.batch_size:
-            print(f'image count({len(self.train_image_path)}) is lower than batch size({self.batch_size})')
+        self.train_image_paths_gt, self.train_image_paths_noisy = self.init_image_paths(self.train_image_path)
+        if len(self.train_image_paths_gt) == 0:
+            print(f'no images found in {self.train_image_path}')
             exit(0)
-
-        self.validation_image_paths = self.init_image_paths(self.validation_image_path)
-        if len(self.validation_image_paths) <= self.batch_size:
-            print(f'image count({len(self.validation_image_path)}) is lower than batch size({self.batch_size})')
+        if len(self.train_image_paths_noisy) == 0:
+            print(f'no noisy images found in {self.train_image_path}')
+            exit(0)
+        self.validation_image_paths_gt, self.validation_image_paths_noisy = self.init_image_paths(self.validation_image_path)
+        if len(self.validation_image_paths_gt) == 0:
+            print(f'no images found in {self.validation_image_path}')
+            exit(0)
+        if len(self.validation_image_paths_noisy) == 0:
+            print(f'no noisy images found in {self.validation_image_path}')
             exit(0)
 
         if self.pretrained_model_path != '':
@@ -125,7 +130,8 @@ class DenoisingModel:
             self.model = Model(input_shape=self.model_input_shape).build()
 
         self.data_generator = DataGenerator(
-            image_paths=self.train_image_paths,
+            image_paths_gt=self.train_image_paths_gt,
+            image_paths_noisy=self.train_image_paths_noisy,
             user_input_shape=self.user_input_shape,
             model_input_shape=self.model_input_shape,
             input_type=self.input_type,
@@ -177,7 +183,14 @@ class DenoisingModel:
         return os.path.exists(path) and os.path.isdir(path)
 
     def init_image_paths(self, image_path, recursive=True):
-        return glob(f'{image_path}/**/*.jpg' if recursive else f'{image_path}/*.jpg', recursive=recursive)
+        paths_all = glob(f'{image_path}/**/*.jpg' if recursive else f'{image_path}/*.jpg', recursive=recursive)
+        paths_gt, paths_noisy = [], []
+        for path in paths_all:
+            if os.path.basename(path).find('_NOISY_') == -1:
+                paths_gt.append(path)
+            else:
+                paths_noisy.append(path)
+        return paths_gt, paths_noisy
 
     def load_model(self, model_path):
         if not (os.path.exists(model_path) and os.path.isfile(model_path)):
@@ -209,51 +222,71 @@ class DenoisingModel:
     def concat(self, images):
         return np.concatenate(images, axis=1)
 
-    # input image : model input format image, output image : denoised bgr image
-    def predict(self, img):
-        view_channel = self.user_input_shape[-1]
+    # input image : gray or bgr image, output image : denoised gray or bgr image for viewing
+    def predict(self, img_noisy, model_forward=True):
         if self.input_type in ['nv12', 'nv21']:
-            origin_img = self.data_generator.convert_yuv420sp2bgr(img)
-            view_channel = 3
+            img_noisy = self.data_generator.convert_bgr2yuv420sp(img_noisy)
         elif self.input_type == 'rgb':
-            origin_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        else:
-            origin_img = img
-        view_shape = self.user_input_shape[:2] + (view_channel,)
+            img_noisy = cv2.cvtColor(img_noisy, cv2.COLOR_BGR2RGB)
 
-        x = self.data_generator.normalize(img).reshape((1,) + self.model_input_shape)
-        y = np.array(self.graph_forward(self.model, x)).reshape(self.model_input_shape)
-        img_denoised = self.data_generator.denormalize(y)
+        if model_forward:
+            x = self.data_generator.normalize(img_noisy).reshape((1,) + self.model_input_shape)
+            y = np.array(self.graph_forward(self.model, x)).reshape(self.model_input_shape)
+            img_denoised = self.data_generator.denormalize(y)
+        else:
+            img_denoised = img_noisy.copy()
+
         if self.input_type in ['nv12', 'nv21']:
+            img_noisy = self.data_generator.convert_yuv420sp2bgr(img_noisy)
             img_denoised = self.data_generator.convert_yuv420sp2bgr(img_denoised)
         elif self.input_type == 'rgb':
+            img_noisy = cv2.cvtColor(img_noisy, cv2.COLOR_RGB2BGR)
             img_denoised = cv2.cvtColor(img_denoised, cv2.COLOR_RGB2BGR)
-        return img_denoised
 
-    def predict_images(self, image_path='', dataset='validation', save_count=0, recursive=False):
-        image_paths = []
+        view_shape = self.user_input_shape[:2] + (1 if self.input_type == 'gray' else 3,)
+        img_noisy = img_noisy.reshape(view_shape)
+        img_denoised = img_denoised.reshape(view_shape)
+        return img_noisy, img_denoised
+
+    def predict_images(self, image_path='', dataset='validation', save_count=0, recursive=False, predict_gt=False):
+        image_paths_gt, image_paths_noisy = [], []
         if image_path != '':
             if not os.path.exists(image_path):
                 print(f'image path not found : {image_path}')
                 return
-            image_paths = self.init_image_paths(image_path, recursive=recursive) if os.path.isdir(image_path) else [image_path]
+            if os.path.isdir(image_path):
+                image_paths_gt, image_paths_noisy = self.init_image_paths(image_path, recursive=recursive)
+            else:
+                image_paths_gt, image_paths_noisy = [image_path], []
         else:
             assert dataset in ['train', 'validation']
-            image_paths = self.train_image_paths if dataset == 'train' else self.validation_image_paths
+            if dataset == 'train':
+                image_paths_gt = self.train_image_paths_gt
+                image_paths_noisy = self.train_image_paths_noisy
+            else:
+                image_paths_gt = self.validation_image_paths_gt
+                image_paths_noisy = self.validation_image_paths_noisy
 
-        if len(image_paths) == 0:
+        if len(image_paths_gt) == 0:
             print(f'no images found')
             return
+
+        data_generator = DataGenerator(
+            image_paths_gt=image_paths_gt,
+            image_paths_noisy=image_paths_noisy,
+            user_input_shape=self.user_input_shape,
+            model_input_shape=self.model_input_shape,
+            input_type=self.input_type,
+            batch_size=self.batch_size,
+            max_noise=self.max_noise)
 
         cnt = 0
         save_path = 'result_images'
         os.makedirs(save_path, exist_ok=True)
-        for path in image_paths:
-            _, img_noise = self.data_generator.load_image(path)
-            img_denoised = self.predict(img_noise)
-            if self.input_type in ['nv12', 'nv21']:
-                img_noise = self.data_generator.convert_yuv420sp2bgr(img_noise)
-            img_concat = self.concat([img_noise, img_denoised])
+        for path in image_paths_gt:
+            img_noisy = data_generator.load_gt_image(path) if predict_gt else data_generator.load_noisy_image(path)
+            img_noisy, img_denoised = self.predict(img_noisy)
+            img_concat = self.concat([img_noisy, img_denoised])
             if save_count > 0:
                 basename = os.path.basename(path)
                 save_img_path = f'{save_path}/{basename}'
@@ -271,93 +304,56 @@ class DenoisingModel:
     def psnr(self, mse):
         return 20 * np.log10(1.0 / np.sqrt(mse)) if mse!= 0.0 else 100.0
 
-    # def evaluate(self, dataset='validation', image_path='', recursive=False, skip_model_forward=False):
-    #     image_paths = []
-    #     if image_path != '':
-    #         if not os.path.exists(image_path):
-    #             print(f'image path not found : {image_path}')
-    #             return
-    #         image_paths = self.init_image_paths(image_path, recursive=recursive) if os.path.isdir(image_path) else [image_path]
-    #     else:
-    #         assert dataset in ['train', 'validation']
-    #         image_paths = self.train_image_paths if dataset == 'train' else self.validation_image_paths
-
-    #     if len(image_paths) == 0:
-    #         print(f'no images found')
-    #         return
-
-    #     data_generator = DataGenerator(
-    #         image_paths=image_paths,
-    #         user_input_shape=self.user_input_shape,
-    #         model_input_shape=self.model_input_shape,
-    #         input_type=self.input_type,
-    #         batch_size=1,
-    #         max_noise=self.max_noise)
-
-    #     psnr_sum = 0.0
-    #     ssim_sum = 0.0
-    #     for batch_x, batch_y in tqdm(data_generator):
-    #         y = batch_x if skip_model_forward else self.graph_forward(self.model, batch_x)
-    #         if self.input_type in ['nv12', 'nv21']:
-    #             bgr_true = data_generator.convert_yuv420sp2bgr(data_generator.denormalize(batch_y[0]))
-    #             bgr_pred = data_generator.convert_yuv420sp2bgr(data_generator.denormalize(np.asarray(y[0])))
-    #             bgr_true = data_generator.normalize(bgr_true)
-    #             bgr_pred = data_generator.normalize(bgr_pred)
-    #             mse = np.mean((bgr_true - bgr_pred) ** 2.0)
-    #             ssim = tf.image.ssim(bgr_true, bgr_pred, 1.0)
-    #         else:
-    #             y_true = batch_y[0]
-    #             y_pred = np.asarray(y[0])
-    #             mse = np.mean((y_true - y_pred) ** 2.0)
-    #             ssim = tf.image.ssim(y_true, y_pred, 1.0)
-    #         psnr = self.psnr(mse)
-    #         psnr_sum += psnr
-    #         ssim_sum += ssim
-    #     avg_psnr = psnr_sum / float(len(image_paths))
-    #     avg_ssim = ssim_sum / float(len(image_paths))
-    #     print(f'\npsnr : {avg_psnr:.2f}, ssim : {avg_ssim:.4f}')
-
-    def evaluate(self, dataset='validation', image_path='', recursive=False, skip_model_forward=False):
-        image_paths = []
+    def evaluate(self, dataset='validation', image_path='', recursive=False, evaluate_gt=True):
+        image_paths_gt, image_paths_noisy = [], []
         if image_path != '':
             if not os.path.exists(image_path):
                 print(f'image path not found : {image_path}')
                 return
-            image_paths = self.init_image_paths(image_path, recursive=recursive) if os.path.isdir(image_path) else [image_path]
+            if os.path.isdir(image_path):
+                image_paths_gt, image_paths_noisy = self.init_image_paths(image_path, recursive=recursive)
+            else:
+                image_paths_gt, image_paths_noisy = [image_path], []
         else:
             assert dataset in ['train', 'validation']
-            image_paths = self.train_image_paths if dataset == 'train' else self.validation_image_paths
+            if dataset == 'train':
+                image_paths_gt = self.train_image_paths_gt
+                image_paths_noisy = self.train_image_paths_noisy
+            else:
+                image_paths_gt = self.validation_image_paths_gt
+                image_paths_noisy = self.validation_image_paths_noisy
 
-        if len(image_paths) == 0:
+        if len(image_paths_gt) == 0:
             print(f'no images found')
             return
 
+        data_generator = DataGenerator(
+            image_paths_gt=image_paths_gt,
+            image_paths_noisy=image_paths_noisy,
+            user_input_shape=self.user_input_shape,
+            model_input_shape=self.model_input_shape,
+            input_type=self.input_type,
+            batch_size=self.batch_size,
+            max_noise=self.max_noise)
+
         psnr_sum = 0.0
         ssim_sum = 0.0
-        for path in tqdm(image_paths):
-            img, img_noise = self.data_generator.load_image(path)
-            img_true = img
+        for path in tqdm(image_paths_gt):
+            img = data_generator.load_gt_image(path)
+            img_noisy = data_generator.load_noisy_image(path)
 
-            x = np.asarray(self.data_generator.normalize(img)).reshape((1,) + self.model_input_shape)
-            if skip_model_forward:
-                img_pred = img_noise
-            else:
-                y = self.graph_forward(self.model, x)[0]
-                img_pred = self.data_generator.denormalize(y)
+            img, _ = self.predict(img, model_forward=False)  # for convert to gray or bgr
+            img_noisy, img_denoised = self.predict(img_noisy, model_forward=not evaluate_gt)
 
-            if self.input_type in ['nv12', 'nv21']:
-                img_true = self.data_generator.convert_yuv420sp2bgr(img_true)
-                img_pred = self.data_generator.convert_yuv420sp2bgr(img_pred)
-
-            img_true_norm = self.data_generator.normalize(img_true)
-            img_pred_norm = self.data_generator.normalize(img_pred)
+            img_true_norm = data_generator.normalize(img)
+            img_pred_norm = data_generator.normalize(img_denoised)
             mse = np.mean((img_true_norm - img_pred_norm) ** 2.0)
             ssim = tf.image.ssim(img_true_norm, img_pred_norm, 1.0)
             psnr = self.psnr(mse)
             psnr_sum += psnr
             ssim_sum += ssim
-        avg_psnr = psnr_sum / float(len(image_paths))
-        avg_ssim = ssim_sum / float(len(image_paths))
+        avg_psnr = psnr_sum / float(len(image_paths_gt))
+        avg_ssim = ssim_sum / float(len(image_paths_gt))
         print(f'\npsnr : {avg_psnr:.2f}, ssim : {avg_ssim:.4f}')
 
     def save_model(self, iteration_count):
@@ -373,7 +369,7 @@ class DenoisingModel:
 
     def train(self):
         self.model.summary()
-        print(f'\ntrain on {len(self.train_image_paths)} samples.')
+        print(f'\ntrain on {len(self.train_image_paths_gt)} gt, {len(self.train_image_paths_noisy)} noisy samples.')
         print('start training')
         iteration_count = self.pretrained_iteration_count
         optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr)
@@ -399,12 +395,12 @@ class DenoisingModel:
         cur_time = time()
         if cur_time - self.live_view_previous_time > 0.5:
             self.live_view_previous_time = cur_time
-            img_path = np.random.choice(self.validation_image_paths)
-            img, img_noise = self.data_generator.load_image(img_path)
-            img_denoised = self.predict(img_noise)
+            img_path = np.random.choice(self.validation_image_paths_gt)
+            img, img_noisy = self.data_generator.load_image(img_path)
+            img_denoised = self.predict(img_noisy)
             if self.input_type in ['nv12', 'nv21']:
-                img_noise = self.data_generator.convert_yuv420sp2bgr(img_noise)
-            img_concat = self.concat([img_noise, img_denoised])
+                img_noisy = self.data_generator.convert_yuv420sp2bgr(img_noisy)
+            img_concat = self.concat([img_noisy, img_denoised])
             cv2.imshow('training view', img_concat)
             cv2.waitKey(1)
 
