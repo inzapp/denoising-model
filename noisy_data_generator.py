@@ -36,7 +36,7 @@ from tqdm import tqdm
 class NoisyDataGenerator:
     def __init__(self, generate_count_per_image):
         self.generate_count_per_image = generate_count_per_image
-        self.random_noise_max_range = 100
+        self.random_noise_max_range = 75
 
     def init_image_paths(self, path):
         all_paths = glob(f'{path}/**/*.jpg', recursive=True)
@@ -79,7 +79,7 @@ class NoisyDataGenerator:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', type=str, default='.', help='path where generate or remove noisy image')
-    parser.add_argument('--count', type=int, default=5, help='generate count per image')
+    parser.add_argument('--count', type=int, default=1, help='generate count per image')
     parser.add_argument('--generate', action='store_true', help='generate noisy images')
     parser.add_argument('--remove', action='store_true', help='remove noisy images')
     args = parser.parse_args()
