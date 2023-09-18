@@ -28,6 +28,7 @@ import os
 import cv2
 import argparse
 import numpy as np
+import shutil as sh
 
 from glob import glob
 from tqdm import tqdm
@@ -36,7 +37,7 @@ from tqdm import tqdm
 class NoisyDataGenerator:
     def __init__(self, generate_count_per_image):
         self.generate_count_per_image = generate_count_per_image
-        self.random_noise_max_range = 75
+        self.random_noise_max_range = 40
 
     def init_image_paths(self, path):
         all_paths = glob(f'{path}/**/*.jpg', recursive=True)
@@ -75,6 +76,63 @@ class NoisyDataGenerator:
         for path in tqdm(noisy_paths):
             os.remove(path)
 
+    def check(self, path):
+        gt_paths, _= self.init_image_paths(path)
+        if len(gt_paths) == 0:
+            print(f'no gt images found in {path}')
+            exit(0)
+        not_paired_gt_paths = []
+        for gt_path in tqdm(gt_paths):
+            noisy_image_exists = False
+            for i in range(9):
+                noisy_path = f'{gt_path[:-4]}_NOISY_{i}.jpg'
+                if os.path.exists(noisy_path) and os.path.isfile(noisy_path):
+                    noisy_image_exists = True
+            if not noisy_image_exists:
+                not_paired_gt_paths.append(gt_path)
+
+        if len(not_paired_gt_paths) == 0:
+            print('all images has noisy pairs at least once')
+        else:
+            for path in not_paired_gt_paths:
+                print(path)
+            print(f'\nno noisy pair image count : {len(not_paired_gt_paths)}')
+
+    def rename(self, path):
+        _, noisy_paths = self.init_image_paths(path)
+        if len(noisy_paths) == 0:
+            print(f'no noisy images found in {path}')
+            exit(0)
+
+        noisy_index_candidates = list(map(str, list(range(10))))
+        for path in tqdm(noisy_paths):
+            path = path.replace('\\', '/')
+            path_sp = path.split('/')
+            basename = path_sp[-1]
+            basename_without_extension = basename[:-4]
+            basename_sp = basename_without_extension.split('_')
+
+            noisy_position = -1
+            noisy_index_position = -1
+            for i in range(len(basename_sp)):
+                if basename_sp[i] == 'NOISY' and i + 1 < len(basename_sp):
+                    if basename_sp[i+1] in noisy_index_candidates:
+                        noisy_position = i
+                        noisy_index_position = i + 1
+                        break
+
+            new_basename = basename
+            if noisy_position > -1 and noisy_index_position > -1:
+                noisy_index_str = basename_sp.pop(noisy_index_position)
+                basename_sp.pop(noisy_position)
+                basename_sp.append('NOISY')
+                basename_sp.append(noisy_index_str)
+                new_basename = '_'.join(basename_sp) + '.jpg'
+            path_sp[-1] = new_basename
+            new_path = '/'.join(path_sp)
+            if path != new_path:
+                sh.move(path, new_path)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -82,16 +140,27 @@ if __name__ == '__main__':
     parser.add_argument('--count', type=int, default=1, help='generate count per image')
     parser.add_argument('--generate', action='store_true', help='generate noisy images')
     parser.add_argument('--remove', action='store_true', help='remove noisy images')
+    parser.add_argument('--check', action='store_true', help='check dataset has paired noisy data')
+    parser.add_argument('--rename', action='store_true', help='move tail identifier to end of name')
     args = parser.parse_args()
-    if not args.generate and not args.remove:
-        print('--generate or --remove must be included')
+    check_count = 0
+    check_count = check_count + 1 if args.generate else check_count
+    check_count = check_count + 1 if args.remove else check_count
+    check_count = check_count + 1 if args.rename else check_count
+    check_count = check_count + 1 if args.check else check_count
+    if check_count == 0:
+        print('use with one of [--generate, --remove, --rename, --check]')
         exit(0)
-    if args.generate and args.remove:
-        print('--generate and --remove cannot be used at the same time')
+    if check_count > 1:
+        print('[--generate, --remove, --rename, --check] cannot be used at the same time')
         exit(0)
     noisy_data_generator = NoisyDataGenerator(args.count)
     if args.generate:
         noisy_data_generator.generate(args.path)
     elif args.remove:
         noisy_data_generator.remove(args.path)
+    elif args.check:
+        noisy_data_generator.check(args.path)
+    elif args.rename:
+        noisy_data_generator.rename(args.path)
 
