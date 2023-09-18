@@ -36,6 +36,7 @@ from tqdm import tqdm
 
 class NoisyDataGenerator:
     def __init__(self, generate_count_per_image):
+        self.noisy_index_candidates = list(map(str, list(range(10))))
         self.generate_count_per_image = generate_count_per_image
         self.random_noise_max_range = 40
 
@@ -104,7 +105,6 @@ class NoisyDataGenerator:
             print(f'no noisy images found in {path}')
             exit(0)
 
-        noisy_index_candidates = list(map(str, list(range(10))))
         for path in tqdm(noisy_paths):
             path = path.replace('\\', '/')
             path_sp = path.split('/')
@@ -116,7 +116,7 @@ class NoisyDataGenerator:
             noisy_index_position = -1
             for i in range(len(basename_sp)):
                 if basename_sp[i] == 'NOISY' and i + 1 < len(basename_sp):
-                    if basename_sp[i+1] in noisy_index_candidates:
+                    if basename_sp[i+1] in self.noisy_index_candidates:
                         noisy_position = i
                         noisy_index_position = i + 1
                         break
@@ -133,6 +133,39 @@ class NoisyDataGenerator:
             if path != new_path:
                 sh.move(path, new_path)
 
+    def split(self, path):
+        gt_paths, _= self.init_image_paths(path)
+        if len(gt_paths) == 0:
+            print(f'no gt images found in {path}')
+            exit(0)
+
+        train_dir_path = f'{path}/train'
+        if not (os.path.exists(train_dir_path) and os.path.isdir(train_dir_path)):
+            os.makedirs(train_dir_path, exist_ok=True)
+        validation_dir_path = f'{path}/validation'
+        if not (os.path.exists(validation_dir_path) and os.path.isdir(validation_dir_path)):
+            os.makedirs(validation_dir_path, exist_ok=True)
+
+        np.random.shuffle(gt_paths)
+
+        validation_rate = 0.2
+        validation_count = int(len(gt_paths) * validation_rate)
+        train_gt_image_paths = gt_paths[validation_count:]
+        validation_gt_image_paths = gt_paths[:validation_count]
+
+        for path in tqdm(train_gt_image_paths):
+            sh.move(path, train_dir_path)
+            for index in self.noisy_index_candidates:
+                noisy_path = f'{path[:-4]}_NOISY_{index}.jpg'
+                if os.path.exists(noisy_path) and os.path.isfile(noisy_path):
+                    sh.move(noisy_path, train_dir_path)
+        for path in tqdm(validation_gt_image_paths):
+            sh.move(path, validation_dir_path)
+            for index in self.noisy_index_candidates:
+                noisy_path = f'{path[:-4]}_NOISY_{index}.jpg'
+                if os.path.exists(noisy_path) and os.path.isfile(noisy_path):
+                    sh.move(noisy_path, validation_dir_path)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -142,17 +175,19 @@ if __name__ == '__main__':
     parser.add_argument('--remove', action='store_true', help='remove noisy images')
     parser.add_argument('--check', action='store_true', help='check dataset has paired noisy data')
     parser.add_argument('--rename', action='store_true', help='move tail identifier to end of name')
+    parser.add_argument('--split', action='store_true', help='split train, validation dataset with noisy pairs')
     args = parser.parse_args()
     check_count = 0
     check_count = check_count + 1 if args.generate else check_count
     check_count = check_count + 1 if args.remove else check_count
     check_count = check_count + 1 if args.rename else check_count
     check_count = check_count + 1 if args.check else check_count
+    check_count = check_count + 1 if args.split else check_count
     if check_count == 0:
-        print('use with one of [--generate, --remove, --rename, --check]')
+        print('use with one of [--generate, --remove, --rename, --check, --split]')
         exit(0)
     if check_count > 1:
-        print('[--generate, --remove, --rename, --check] cannot be used at the same time')
+        print('[--generate, --remove, --rename, --check, --split] cannot be used at the same time')
         exit(0)
     noisy_data_generator = NoisyDataGenerator(args.count)
     if args.generate:
@@ -163,4 +198,6 @@ if __name__ == '__main__':
         noisy_data_generator.check(args.path)
     elif args.rename:
         noisy_data_generator.rename(args.path)
+    elif args.split:
+        noisy_data_generator.split(args.path)
 
