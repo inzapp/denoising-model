@@ -36,9 +36,15 @@ from tqdm import tqdm
 
 class NoisyDataGenerator:
     def __init__(self, generate_count_per_image):
+        self.noise_functions = [
+            self.add_random_noise_downscaled_1,
+            self.add_random_noise_downscaled_2,
+            self.add_random_noise_downscaled_4,
+            self.add_random_noise_downscaled_8,
+        ]
         self.noisy_index_candidates = list(map(str, list(range(10))))
         self.generate_count_per_image = generate_count_per_image
-        self.random_noise_max_range = 40
+        self.random_noise_max_range = 50
 
     def init_image_paths(self, path):
         all_paths = glob(f'{path}/**/*.jpg', recursive=True)
@@ -51,12 +57,42 @@ class NoisyDataGenerator:
                 noisy_paths.append(path)
         return gt_paths, noisy_paths
 
-    def add_noise(self, img):
+    def add_random_noise(self, img, downscale_factor):
         img_noise = np.array(img).astype('float32')
         noise_power = np.random.uniform() * self.random_noise_max_range
-        img_noise += np.random.uniform(-noise_power, noise_power, size=img.shape)
+        img_h, img_w = img.shape[:2]
+        noise = np.random.uniform(-noise_power, noise_power, size=(img_h // downscale_factor, img_w // downscale_factor, img.shape[2]))
+        if downscale_factor > 1:
+            noise = cv2.resize(noise, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
+        img_noise += noise
         img_noise = np.clip(img_noise, 0.0, 255.0).astype('uint8')
         return img_noise
+
+    def add_random_noise_downscaled_1(self, img):
+        return self.add_random_noise(img, downscale_factor=1)
+
+    def add_random_noise_downscaled_2(self, img):
+        return self.add_random_noise(img, downscale_factor=2)
+
+    def add_random_noise_downscaled_4(self, img):
+        return self.add_random_noise(img, downscale_factor=4)
+
+    def add_random_noise_downscaled_8(self, img):
+        return self.add_random_noise(img, downscale_factor=8)
+
+    def add_noise(self, img):
+        return np.random.choice(self.noise_functions)(img)
+
+    def show(self, path):
+        gt_paths, _ = self.init_image_paths(path)
+        for path in gt_paths:
+            print(path)
+            img = cv2.imdecode(np.fromfile(path, dtype=np.uint8), cv2.IMREAD_COLOR)
+            img_noise = self.add_noise(img)
+            cv2.imshow('img_noise', img_noise)
+            key = cv2.waitKey(0)
+            if key == 27:
+                exit(0)
 
     def generate(self, path):
         assert 1 <= self.generate_count_per_image <= 10
@@ -171,6 +207,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', type=str, default='.', help='path where generate or remove noisy image')
     parser.add_argument('--count', type=int, default=1, help='generate count per image')
+    parser.add_argument('--show', action='store_true', help='show noisy images for preview')
     parser.add_argument('--generate', action='store_true', help='generate noisy images')
     parser.add_argument('--remove', action='store_true', help='remove noisy images')
     parser.add_argument('--check', action='store_true', help='check dataset has paired noisy data')
@@ -178,19 +215,22 @@ if __name__ == '__main__':
     parser.add_argument('--split', action='store_true', help='split train, validation dataset with noisy pairs')
     args = parser.parse_args()
     check_count = 0
+    check_count = check_count + 1 if args.show else check_count
     check_count = check_count + 1 if args.generate else check_count
     check_count = check_count + 1 if args.remove else check_count
     check_count = check_count + 1 if args.rename else check_count
     check_count = check_count + 1 if args.check else check_count
     check_count = check_count + 1 if args.split else check_count
     if check_count == 0:
-        print('use with one of [--generate, --remove, --rename, --check, --split]')
+        print('use with one of [--show, --generate, --remove, --rename, --check, --split]')
         exit(0)
     if check_count > 1:
-        print('[--generate, --remove, --rename, --check, --split] cannot be used at the same time')
+        print('[--show, --generate, --remove, --rename, --check, --split] cannot be used at the same time')
         exit(0)
     noisy_data_generator = NoisyDataGenerator(args.count)
-    if args.generate:
+    if args.show:
+        noisy_data_generator.show(args.path)
+    elif args.generate:
         noisy_data_generator.generate(args.path)
     elif args.remove:
         noisy_data_generator.remove(args.path)
