@@ -29,6 +29,7 @@ import cv2
 import argparse
 import numpy as np
 import shutil as sh
+import albumentations as A
 
 from glob import glob
 from tqdm import tqdm
@@ -36,15 +37,18 @@ from tqdm import tqdm
 
 class NoisyDataGenerator:
     def __init__(self, generate_count_per_image):
+        self.random_noise_max_range = 40
+        self.transform_jpeg_compression = A.Compose([A.ImageCompression(quality_lower=20, quality_upper=30, always_apply=True)])
+
+        self.generate_count_per_image = generate_count_per_image
         self.noise_functions = [
-            self.add_random_noise_downscaled_1,
-            self.add_random_noise_downscaled_2,
-            self.add_random_noise_downscaled_4,
-            self.add_random_noise_downscaled_8,
+            self.jpeg_compression,
+            self.random_noise_downscaled_1,
+            self.random_noise_downscaled_2,
+            self.random_noise_downscaled_4,
+            self.random_noise_downscaled_8,
         ]
         self.noisy_index_candidates = list(map(str, list(range(10))))
-        self.generate_count_per_image = generate_count_per_image
-        self.random_noise_max_range = 50
 
     def init_image_paths(self, path):
         all_paths = glob(f'{path}/**/*.jpg', recursive=True)
@@ -68,17 +72,20 @@ class NoisyDataGenerator:
         img_noise = np.clip(img_noise, 0.0, 255.0).astype('uint8')
         return img_noise
 
-    def add_random_noise_downscaled_1(self, img):
+    def random_noise_downscaled_1(self, img):
         return self.add_random_noise(img, downscale_factor=1)
 
-    def add_random_noise_downscaled_2(self, img):
+    def random_noise_downscaled_2(self, img):
         return self.add_random_noise(img, downscale_factor=2)
 
-    def add_random_noise_downscaled_4(self, img):
+    def random_noise_downscaled_4(self, img):
         return self.add_random_noise(img, downscale_factor=4)
 
-    def add_random_noise_downscaled_8(self, img):
+    def random_noise_downscaled_8(self, img):
         return self.add_random_noise(img, downscale_factor=8)
+
+    def jpeg_compression(self, img):
+        return self.transform_jpeg_compression(image=img)['image']
 
     def add_noise(self, img):
         return np.random.choice(self.noise_functions)(img)
