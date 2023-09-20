@@ -301,6 +301,28 @@ class DenoisingModel:
                 if key == 27:
                     exit(0)
 
+    def predict_video(self, video_path):
+        if not video_path.startswith('rtsp://') and not (os.video_path.exists(video_path) and os.video_path.isfile(video_path)):
+            print(f'video not found. video video_path : {video_path}')
+            exit(0)
+        cap = cv2.VideoCapture(video_path)
+        while True:
+            frame_exist, bgr = cap.read()
+            if not frame_exist:
+                print('frame not exists')
+                break
+            bgr = self.data_generator.resize(bgr, (self.user_input_shape[1], self.user_input_shape[0]))
+            img_noisy = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY) if self.input_type == 'gray' else bgr
+            img_noisy, img_denoised = self.predict(img_noisy)
+            img_concat = self.concat([img_noisy, img_denoised])
+            # img_concat = self.data_generator.resize(img_concat, scale=0.5)
+            cv2.imshow('img_denoised', img_concat)
+            key = cv2.waitKey(1)
+            if key == 27:
+                exit(0)
+        cap.release()
+        cv2.destroyAllWindows()
+
     def psnr(self, mse):
         return 20 * np.log10(1.0 / np.sqrt(mse)) if mse!= 0.0 else 100.0
 

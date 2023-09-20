@@ -116,14 +116,21 @@ class DataGenerator(tf.keras.utils.Sequence):
             np.random.shuffle(self.image_paths_gt)
         return path
 
-    def resize(self, img, size):
+    def resize(self, img, size=(-1, -1), scale=1.0):
         interpolation = None
         img_height, img_width = img.shape[:2]
-        if size[0] > img_width or size[1] > img_height:
-            interpolation = cv2.INTER_LINEAR
+        if scale != 1.0:
+            if scale > 1.0:
+                interpolation = cv2.INTER_LINEAR
+            else:
+                interpolation = cv2.INTER_AREA
+            return cv2.resize(img, (0, 0), fx=scale, fy=scale)
         else:
-            interpolation = cv2.INTER_AREA
-        return cv2.resize(img, size, interpolation=interpolation)
+            if size[0] > img_width or size[1] > img_height:
+                interpolation = cv2.INTER_LINEAR
+            else:
+                interpolation = cv2.INTER_AREA
+            return cv2.resize(img, size, interpolation=interpolation)
 
     def convert_bgr2yuv420sp(self, img):
         assert self.input_type in ['nv12', 'nv21']
