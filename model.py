@@ -58,10 +58,10 @@ class Model:
         x = self.upsampling2d(x)
         x = self.add([x, f0])
         x = self.conv2d(x, 16, 3, 1, bn=bn, activation='leaky')
-        output_layer = self.denoising_layer(x, input_layer, name='dn_output')
+        output_layer = self.denoising_layer(x, input_layer, bn=bn, name='dn_output')
         return tf.keras.models.Model(input_layer, output_layer)
 
-    def denoising_layer(self, x, input_layer, name='dn_output'):
+    def denoising_layer(self, x, input_layer, bn=False, name='dn_output'):
         x = self.conv2d(x, self.input_shape[-1], 1, 1, bn=bn, activation='tanh')
         return self.add([x, input_layer], name=name)
 
