@@ -76,8 +76,6 @@ class TrainingConfig:
 class DenoisingModel:
     def __init__(self, config, training):
         assert config.save_interval >= 1000
-        assert config.input_rows % 8 == 0
-        assert config.input_cols % 8 == 0
         self.pretrained_model_path = config.pretrained_model_path
         self.train_image_path = config.train_image_path
         self.validation_image_path = config.validation_image_path
@@ -208,12 +206,10 @@ class DenoisingModel:
     def compute_gradient(self, model, optimizer, x, y_true):
         with tf.GradientTape() as tape:
             y_pred = model(x, training=True)
-            abs_error = tf.abs(y_true - y_pred)
-            loss = tf.reduce_mean(abs_error)
-            mse = tf.reduce_mean(tf.square(abs_error))
-        gradients = tape.gradient(loss, model.trainable_variables)
+            mse = tf.reduce_mean(tf.square(y_true - y_pred))
+        gradients = tape.gradient(mse, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        return loss, mse
+        return mse
 
     @tf.function
     def graph_forward(self, model, x):
@@ -402,9 +398,9 @@ class DenoisingModel:
         while True:
             for batch_x, batch_y in self.data_generator:
                 lr_scheduler.update(optimizer, iteration_count)
-                loss, mse = self.compute_gradient(self.model, optimizer, batch_x, batch_y)
+                mse = self.compute_gradient(self.model, optimizer, batch_x, batch_y)
                 iteration_count += 1
-                print(f'\r[iteration_count : {iteration_count:6d}] loss : {loss:>8.4f}, psnr : {self.psnr(mse):.2f}', end='')
+                print(f'\r[iteration_count : {iteration_count:6d}] loss : {mse:>8.4f}, psnr : {self.psnr(mse):.2f}', end='')
                 if self.training_view:
                     self.training_view_function()
                 if iteration_count % 2000 == 0:
