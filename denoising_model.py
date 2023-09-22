@@ -331,6 +331,7 @@ class DenoisingModel:
                     print(f'[read_frames] frame updated')
                 sleep(0)
             end_flag[0] = True
+            cap.release()
 
         lock, frame_queue, end_flag = threading.Lock(), [], [False]
         read_thread = threading.Thread(target=read_frames, args=(rtsp_url, frame_queue, end_flag, lock))
@@ -343,7 +344,7 @@ class DenoisingModel:
             bgr = None
             with lock:
                 if frame_queue:
-                    bgr = frame_queue[0]
+                    bgr = frame_queue[0].copy()
             if bgr is None:
                 print(f'[main] bgr is None')
                 sleep(0.1)
@@ -359,7 +360,6 @@ class DenoisingModel:
             key = cv2.waitKey(1)
             if key == 27:
                 exit(0)
-        cap.release()
         cv2.destroyAllWindows()
 
     def psnr(self, mse):
