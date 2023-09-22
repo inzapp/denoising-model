@@ -181,5 +181,10 @@ class DataGenerator(tf.keras.utils.Sequence):
         return self.load(self.noisy_image_path(image_path_gt))
 
     def load_image(self, image_path_gt):
-        return self.load_gt_image(image_path_gt), self.load_noisy_image(image_path_gt)
+        img = self.load_gt_image(image_path_gt)
+        if np.random.uniform() < 0.2:
+            img_noisy = img.copy()
+        else:
+            img_noisy = self.load_noisy_image(image_path_gt)
+        return img, img_noisy
 
