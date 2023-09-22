@@ -105,10 +105,21 @@ class NoisyDataGenerator:
         for path in tqdm(gt_paths):
             img = cv2.imdecode(np.fromfile(path, dtype=np.uint8), cv2.IMREAD_COLOR)
             path_without_extension = f'{path[:-4]}'
-            for i in range(self.generate_count_per_image):
+            save_count = 0
+            while True:
+                save_success = False
                 img_noise = self.add_noise(img)
-                save_path = f'{path_without_extension}_NOISY_{i}.jpg'
-                cv2.imwrite(save_path, img_noise, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                for i in range(self.max_noisy_image_count):
+                    save_path = f'{path_without_extension}_NOISY_{i}.jpg'
+                    if not (os.path.exists(save_path) and os.path.isfile(save_path)):
+                        cv2.imwrite(save_path, img_noise, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                        save_count += 1
+                        save_success = True
+                        break
+                if not save_success:  # case all noisy index image is generated
+                    break
+                if save_count == self.generate_count_per_image:
+                    break
 
     def remove(self, path):
         _, noisy_paths = self.init_image_paths(path)
