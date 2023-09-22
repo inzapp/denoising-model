@@ -37,8 +37,8 @@ from tqdm import tqdm
 
 class NoisyDataGenerator:
     def __init__(self, generate_count_per_image):
-        self.random_noise_max_range = 40
-        self.transform_jpeg_compression = A.Compose([A.ImageCompression(quality_lower=20, quality_upper=30, always_apply=True)])
+        self.random_noise_max_range = 100
+        self.transform_jpeg_compression = A.Compose([A.ImageCompression(quality_lower=12, quality_upper=20, always_apply=True)])
 
         self.generate_count_per_image = generate_count_per_image
         self.noise_functions = [
@@ -46,9 +46,9 @@ class NoisyDataGenerator:
             self.random_noise_downscaled_1,
             self.random_noise_downscaled_2,
             self.random_noise_downscaled_4,
-            self.random_noise_downscaled_8,
         ]
-        self.noisy_index_candidates = list(map(str, list(range(10))))
+        self.max_noisy_image_count = 10  # fixed count for data loader, do not change
+        self.noisy_index_candidates = list(map(str, list(range(self.max_noisy_image_count))))
 
     def init_image_paths(self, path):
         all_paths = glob(f'{path}/**/*.jpg', recursive=True)
@@ -63,7 +63,7 @@ class NoisyDataGenerator:
 
     def add_random_noise(self, img, downscale_factor):
         img_noise = np.array(img).astype('float32')
-        noise_power = np.random.uniform() * self.random_noise_max_range
+        noise_power = np.random.uniform() * self.random_noise_max_range / np.sqrt(downscale_factor)
         img_h, img_w = img.shape[:2]
         noise = np.random.uniform(-noise_power, noise_power, size=(img_h // downscale_factor, img_w // downscale_factor, img.shape[2]))
         if downscale_factor > 1:
@@ -81,9 +81,6 @@ class NoisyDataGenerator:
     def random_noise_downscaled_4(self, img):
         return self.add_random_noise(img, downscale_factor=4)
 
-    def random_noise_downscaled_8(self, img):
-        return self.add_random_noise(img, downscale_factor=8)
-
     def jpeg_compression(self, img):
         return self.transform_jpeg_compression(image=img)['image']
 
@@ -96,13 +93,14 @@ class NoisyDataGenerator:
             print(path)
             img = cv2.imdecode(np.fromfile(path, dtype=np.uint8), cv2.IMREAD_COLOR)
             img_noise = self.add_noise(img)
-            cv2.imshow('img_noise', img_noise)
+            img_cat = np.concatenate([img, img_noise], axis=1)
+            cv2.imshow('noisy_image_sample', img_cat)
             key = cv2.waitKey(0)
             if key == 27:
                 exit(0)
 
     def generate(self, path):
-        assert 1 <= self.generate_count_per_image <= 10
+        assert 1 <= self.generate_count_per_image <= self.max_noisy_image_count
         gt_paths, _ = self.init_image_paths(path)
         for path in tqdm(gt_paths):
             img = cv2.imdecode(np.fromfile(path, dtype=np.uint8), cv2.IMREAD_COLOR)
@@ -121,14 +119,14 @@ class NoisyDataGenerator:
             os.remove(path)
 
     def check(self, path):
-        gt_paths, _= self.init_image_paths(path)
+        gt_paths, _ = self.init_image_paths(path)
         if len(gt_paths) == 0:
             print(f'no gt images found in {path}')
             exit(0)
         not_paired_gt_paths = []
         for gt_path in tqdm(gt_paths):
             noisy_image_exists = False
-            for i in range(9):
+            for i in range(self.max_noisy_image_count):
                 noisy_path = f'{gt_path[:-4]}_NOISY_{i}.jpg'
                 if os.path.exists(noisy_path) and os.path.isfile(noisy_path):
                     noisy_image_exists = True
