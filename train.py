@@ -36,10 +36,9 @@ if __name__ == '__main__':
         input_rows=256,
         input_cols=256,
         input_type='gray',  # available types : [gray, rgb, nv12, nv21]
-        lr=0.0003,
-        warm_up=0.1,
+        lr=0.001,
+        warm_up=0.5,
         batch_size=2,
-        max_noise=30,
         iterations=100000,
         save_interval=10000,
         training_view=False)

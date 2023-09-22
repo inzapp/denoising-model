@@ -41,7 +41,6 @@ class DataGenerator(tf.keras.utils.Sequence):
                  model_input_shape,
                  input_type,
                  batch_size,
-                 max_noise,
                  dtype='float32'):
         assert input_type in ['gray', 'rgb', 'nv12', 'nv21']
         self.image_paths_gt = image_paths_gt
@@ -50,7 +49,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.model_input_shape = model_input_shape
         self.input_type = input_type
         self.batch_size = batch_size
-        self.max_noise = max_noise
         self.dtype = dtype
         self.pool = ThreadPoolExecutor(8)
         self.img_index = 0
@@ -157,13 +155,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         else:
             conversion_type = cv2.COLOR_YUV2BGR_NV21
         return cv2.cvtColor(img, conversion_type)
-
-    def add_noise(self, img):
-        img_noisy = np.array(img).astype('float32')
-        noise_power = np.random.uniform() * self.max_noise
-        img_noisy += np.random.uniform(-noise_power, noise_power, size=img.shape)
-        img_noisy = np.clip(img_noisy, 0.0, 255.0).astype('uint8')
-        return img_noisy
 
     def noisy_image_path(self, image_path):
         return np.random.choice(self.noisy_image_paths_of[self.key(image_path, 'gt')])

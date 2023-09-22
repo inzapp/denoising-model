@@ -52,7 +52,6 @@ class TrainingConfig:
                  model_name='model',
                  lr=0.001,
                  warm_up=0.1,
-                 max_noise=30,
                  batch_size=2,
                  iterations=100000,
                  save_interval=5000,
@@ -66,7 +65,6 @@ class TrainingConfig:
         self.model_name = model_name
         self.lr = lr
         self.warm_up = warm_up
-        self.max_noise = max_noise
         self.batch_size = batch_size
         self.iterations = iterations
         self.save_interval = save_interval
@@ -85,7 +83,6 @@ class DenoisingModel:
         self.model_name = config.model_name
         self.lr = config.lr
         self.warm_up = config.warm_up
-        self.max_noise = config.max_noise
         self.batch_size = config.batch_size
         self.save_interval = config.save_interval
         self.iterations = config.iterations
@@ -133,8 +130,7 @@ class DenoisingModel:
             user_input_shape=self.user_input_shape,
             model_input_shape=self.model_input_shape,
             input_type=self.input_type,
-            batch_size=self.batch_size,
-            max_noise=self.max_noise)
+            batch_size=self.batch_size)
 
     def convert_to_model_input_shape(self, user_input_shape):
         if self.input_type in ['nv12', 'nv21']:
@@ -273,8 +269,7 @@ class DenoisingModel:
             user_input_shape=self.user_input_shape,
             model_input_shape=self.model_input_shape,
             input_type=self.input_type,
-            batch_size=self.batch_size,
-            max_noise=self.max_noise)
+            batch_size=self.batch_size)
 
         cnt = 0
         save_path = 'result_images'
@@ -351,8 +346,7 @@ class DenoisingModel:
             user_input_shape=self.user_input_shape,
             model_input_shape=self.model_input_shape,
             input_type=self.input_type,
-            batch_size=self.batch_size,
-            max_noise=self.max_noise)
+            batch_size=self.batch_size)
 
         psnr_sum = 0.0
         ssim_sum = 0.0
