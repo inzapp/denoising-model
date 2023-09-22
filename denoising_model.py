@@ -293,7 +293,7 @@ class DenoisingModel:
                     exit(0)
 
     def predict_video(self, video_path):
-        if not video_path.startswith('rtsp://') and not (os.video_path.exists(video_path) and os.video_path.isfile(video_path)):
+        if not (os.path.exists(video_path) and os.path.isfile(video_path)):
             print(f'video not found. video video_path : {video_path}')
             exit(0)
         cap = cv2.VideoCapture(video_path)
@@ -306,7 +306,55 @@ class DenoisingModel:
             img_noisy = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY) if self.input_type == 'gray' else bgr
             img_noisy, img_denoised = self.predict(img_noisy)
             img_concat = self.concat([img_noisy, img_denoised])
-            # img_concat = self.data_generator.resize(img_concat, scale=0.5)
+            img_concat = self.data_generator.resize(img_concat, scale=0.5)
+            cv2.imshow('img_denoised', img_concat)
+            key = cv2.waitKey(1)
+            if key == 27:
+                exit(0)
+        cap.release()
+        cv2.destroyAllWindows()
+
+    def predict_rtsp(self, rtsp_url):
+        import threading
+        from time import sleep
+        def read_frames(rtsp_url, frame_queue, end_flag, lock):
+            cap = cv2.VideoCapture(rtsp_url)
+            while True:
+                with lock:
+                    frame_exist, bgr = cap.read()
+                    if not frame_exist:
+                        break
+                    if len(frame_queue) == 0:
+                        frame_queue.append(bgr)
+                    else:
+                        frame_queue[0] = bgr
+                    print(f'[read_frames] frame updated')
+                sleep(0)
+            end_flag[0] = True
+
+        lock, frame_queue, end_flag = threading.Lock(), [], [False]
+        read_thread = threading.Thread(target=read_frames, args=(rtsp_url, frame_queue, end_flag, lock))
+        read_thread.daemon = True
+        read_thread.start()
+        while True:
+            if end_flag[0]:
+                print(f'[main] end flag is True')
+                break
+            bgr = None
+            with lock:
+                if frame_queue:
+                    bgr = frame_queue[0]
+            if bgr is None:
+                print(f'[main] bgr is None')
+                sleep(0.1)
+                continue
+
+            print(f'[main] frame get success')
+            bgr = self.data_generator.resize(bgr, (self.user_input_shape[1], self.user_input_shape[0]))
+            img_noisy = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY) if self.input_type == 'gray' else bgr
+            img_noisy, img_denoised = self.predict(img_noisy)
+            img_concat = self.concat([img_noisy, img_denoised])
+            img_concat = self.data_generator.resize(img_concat, scale=0.5)
             cv2.imshow('img_denoised', img_concat)
             key = cv2.waitKey(1)
             if key == 27:

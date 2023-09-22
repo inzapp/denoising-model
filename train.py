@@ -66,8 +66,10 @@ if __name__ == '__main__':
         config.input_type = args.type
     denoising_model = DenoisingModel(config=config, training=not (args.predict or args.predict_gt or args.evaluate or args.evaluate_gt))
     if args.predict or args.predict_gt:
-        if args.path.endswith('.mp4') or args.path.startswith('rtsp://'):
+        if args.path.endswith('.mp4'):
             denoising_model.predict_video(video_path=args.path)
+        elif args.path.startswith('rtsp://'):
+            denoising_model.predict_rtsp(rtsp_url=args.path)
         else:
             denoising_model.predict_images(image_path=args.path, dataset=args.dataset, save_count=args.save_count, recursive=args.r, predict_gt=args.predict_gt)
     elif args.evaluate or args.evaluate_gt:
