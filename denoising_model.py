@@ -365,7 +365,7 @@ class DenoisingModel:
     def psnr(self, mse):
         return 20 * np.log10(1.0 / np.sqrt(mse)) if mse!= 0.0 else 100.0
 
-    def evaluate(self, dataset='validation', image_path='', recursive=False, evaluate_gt=True):
+    def evaluate(self, dataset='validation', image_path='', recursive=False, evaluate_gt=False):
         image_paths_gt, image_paths_noisy = [], []
         if image_path != '':
             if not os.path.exists(image_path):
