@@ -130,7 +130,7 @@ class NoisyDataGenerator:
             os.remove(path)
 
     def check(self, path):
-        gt_paths, _ = self.init_image_paths(path)
+        gt_paths, noisy_paths = self.init_image_paths(path)
         if len(gt_paths) == 0:
             print(f'no gt images found in {path}')
             exit(0)
@@ -146,6 +146,8 @@ class NoisyDataGenerator:
 
         if len(not_paired_gt_paths) == 0:
             print('all images has noisy pairs at least once')
+            print(f'gt images : {len(gt_paths)}')
+            print(f'noisy images : {len(noisy_paths)}')
         else:
             for path in not_paired_gt_paths:
                 print(path)
