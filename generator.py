@@ -79,6 +79,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 img_noisy = self.convert_bgr2yuv420sp(img_noisy)
             elif self.input_type == 'rgb':
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                img_noisy = cv2.cvtColor(img_noisy, cv2.COLOR_BGR2RGB)
             batch_x.append(self.normalize(np.asarray(img_noisy).reshape(self.model_input_shape)))
             batch_y.append(self.normalize(np.asarray(img).reshape(self.model_input_shape)))
         batch_x = np.asarray(batch_x).astype(self.dtype)
