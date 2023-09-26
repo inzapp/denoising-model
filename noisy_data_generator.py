@@ -38,17 +38,23 @@ from tqdm import tqdm
 class NoisyDataGenerator:
     def __init__(self, generate_count_per_image):
         self.random_noise_max_range = 100
-        self.transform_jpeg_compression = A.Compose([A.ImageCompression(quality_lower=12, quality_upper=20, always_apply=True)])
-
+        self.transform_jpeg_compression = A.Compose([A.ImageCompression(quality_lower=30, quality_upper=50, always_apply=True)])
         self.generate_count_per_image = generate_count_per_image
         self.noise_functions = [
-            self.jpeg_compression,
             self.random_noise_downscaled_1,
             self.random_noise_downscaled_2,
             self.random_noise_downscaled_4,
         ]
+        self.min_noise_power_of = self.get_min_noise_power_of()
         self.max_noisy_image_count = 10  # fixed count for data loader, do not change
         self.noisy_index_candidates = list(map(str, list(range(self.max_noisy_image_count))))
+
+    def get_min_noise_power_of(self):
+        min_noise_power_of = {}
+        min_noise_power_of[1] = 20
+        min_noise_power_of[2] = 15
+        min_noise_power_of[4] = 10
+        return min_noise_power_of
 
     def init_image_paths(self, path):
         all_paths = glob(f'{path}/**/*.jpg', recursive=True)
@@ -63,7 +69,8 @@ class NoisyDataGenerator:
 
     def add_random_noise(self, img, downscale_factor):
         img_noise = np.array(img).astype('float32')
-        noise_power = np.random.uniform() * self.random_noise_max_range / np.sqrt(downscale_factor)
+        noise_power = np.random.uniform() * self.random_noise_max_range / downscale_factor
+        noise_power = max(noise_power, self.min_noise_power_of[downscale_factor])
         img_h, img_w = img.shape[:2]
         noise = np.random.uniform(-noise_power, noise_power, size=(img_h // downscale_factor, img_w // downscale_factor, img.shape[2]))
         if downscale_factor > 1:
@@ -85,7 +92,14 @@ class NoisyDataGenerator:
         return self.transform_jpeg_compression(image=img)['image']
 
     def add_noise(self, img):
-        return np.random.choice(self.noise_functions)(img)
+        jpeg_compression = False
+        if np.random.uniform() < 0.5:
+            img = self.jpeg_compression(img)
+            jpeg_compression = True
+        img = np.random.choice(self.noise_functions)(img)
+        if not jpeg_compression and np.random.uniform() < 0.5:
+            img = self.jpeg_compression(img)
+        return img
 
     def show(self, path):
         gt_paths, _ = self.init_image_paths(path)
