@@ -54,7 +54,6 @@ if __name__ == '__main__':
     parser.add_argument('--evaluate-gt', action='store_true', help='evaluate using given dataset without model forwarding')
     parser.add_argument('--dataset', type=str, default='validation', help='dataset for evaluate, train or validation available')
     parser.add_argument('--path', type=str, default='', help='image or video path for prediction or evaluation')
-    parser.add_argument('--r', action='store_true', help='find images recursively')
     parser.add_argument('--save-count', type=int, default=0, help='count for save images')
     args = parser.parse_args()
     if args.rows > 0 and args.cols > 0:
@@ -71,9 +70,9 @@ if __name__ == '__main__':
         elif args.path.startswith('rtsp://'):
             denoising_model.predict_rtsp(rtsp_url=args.path)
         else:
-            denoising_model.predict_images(image_path=args.path, dataset=args.dataset, save_count=args.save_count, recursive=args.r, predict_gt=args.predict_gt)
+            denoising_model.predict_images(image_path=args.path, dataset=args.dataset, save_count=args.save_count, predict_gt=args.predict_gt)
     elif args.evaluate or args.evaluate_gt:
-        denoising_model.evaluate(image_path=args.path, dataset=args.dataset, recursive=args.r, evaluate_gt=args.evaluate_gt)
+        denoising_model.evaluate(image_path=args.path, dataset=args.dataset, evaluate_gt=args.evaluate_gt)
     else:
         denoising_model.train()
 

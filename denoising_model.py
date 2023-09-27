@@ -176,8 +176,8 @@ class DenoisingModel:
     def is_valid_path(self, path):
         return os.path.exists(path) and os.path.isdir(path)
 
-    def init_image_paths(self, image_path, recursive=True):
-        paths_all = glob(f'{image_path}/**/*.jpg' if recursive else f'{image_path}/*.jpg', recursive=recursive)
+    def init_image_paths(self, image_path):
+        paths_all = glob(f'{image_path}/**/*.jpg', recursive=True)
         paths_gt, paths_noisy = [], []
         for path in paths_all:
             if os.path.basename(path).find('_NOISY_') == -1:
@@ -240,14 +240,14 @@ class DenoisingModel:
         img_denoised = img_denoised.reshape(view_shape)
         return img_noisy, img_denoised
 
-    def predict_images(self, image_path='', dataset='validation', save_count=0, recursive=False, predict_gt=False):
+    def predict_images(self, image_path='', dataset='validation', save_count=0, predict_gt=False):
         image_paths_gt, image_paths_noisy = [], []
         if image_path != '':
             if not os.path.exists(image_path):
                 print(f'image path not found : {image_path}')
                 return
             if os.path.isdir(image_path):
-                image_paths_gt, image_paths_noisy = self.init_image_paths(image_path, recursive=recursive)
+                image_paths_gt, image_paths_noisy = self.init_image_paths(image_path)
             else:
                 image_paths_gt, image_paths_noisy = [image_path], []
         else:
@@ -365,14 +365,14 @@ class DenoisingModel:
     def psnr(self, mse):
         return 20 * np.log10(1.0 / np.sqrt(mse)) if mse!= 0.0 else 100.0
 
-    def evaluate(self, dataset='validation', image_path='', recursive=False, evaluate_gt=False):
+    def evaluate(self, dataset='validation', image_path='', evaluate_gt=False):
         image_paths_gt, image_paths_noisy = [], []
         if image_path != '':
             if not os.path.exists(image_path):
                 print(f'image path not found : {image_path}')
                 return
             if os.path.isdir(image_path):
-                image_paths_gt, image_paths_noisy = self.init_image_paths(image_path, recursive=recursive)
+                image_paths_gt, image_paths_noisy = self.init_image_paths(image_path)
             else:
                 image_paths_gt, image_paths_noisy = [image_path], []
         else:
