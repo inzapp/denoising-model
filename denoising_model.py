@@ -214,6 +214,14 @@ class DenoisingModel:
     def concat(self, images):
         return np.concatenate(images, axis=1)
 
+    def non_local_means_filter(self, img, h=10, template_window_size=7, search_window_size=21):
+        img = img.reshape(self.model_input_shape)
+        if img.shape[-1] == 1:
+            img_denoised = cv2.fastNlMeansDenoising(img, None, h, template_window_size, search_window_size)
+        else:
+            img_denoised = cv2.fastNlMeansDenoisingColored(img, None, h, h, template_window_size, search_window_size)
+        return img_denoised
+
     # input image : gray or bgr image, output image : denoised gray or bgr image for viewing
     def predict(self, img_noisy, model_forward=True):
         if self.input_type in ['nv12', 'nv21']:
