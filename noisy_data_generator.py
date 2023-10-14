@@ -92,12 +92,8 @@ class NoisyDataGenerator:
         return self.transform_jpeg_compression(image=img)['image']
 
     def add_noise(self, img):
-        jpeg_compression = False
-        if np.random.uniform() < 0.5:
-            img = self.jpeg_compression(img)
-            jpeg_compression = True
         img = np.random.choice(self.noise_functions)(img)
-        if not jpeg_compression and np.random.uniform() < 0.5:
+        if np.random.uniform() < 0.5:
             img = self.jpeg_compression(img)
         return img
 
