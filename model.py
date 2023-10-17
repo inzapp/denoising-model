@@ -39,31 +39,38 @@ class Model:
         assert self.input_shape[0] % 4 == 0 and self.input_shape[1] % 4 == 0
         input_layer = tf.keras.layers.Input(shape=self.input_shape, name='dn_input')
         x = input_layer
-        x = self.conv2d(x, 16, 3, 1, bn=bn, activation='leaky')
+        x = self.conv2d(x, 16, 3, 1, bn=bn, activation='relu')
         f0 = x
         x = self.maxpool2d(x)
-        x = self.conv2d(x, 32, 3, 1, bn=bn, activation='leaky')
-        x = self.conv2d(x, 32, 3, 1, bn=bn, activation='leaky')
+        x = self.csp_block(x, 32, 3, 2, bn=bn, activation='relu')
         f1 = x
         x = self.maxpool2d(x)
-        x = self.conv2d(x, 64, 3, 1, bn=bn, activation='leaky')
-        x = self.conv2d(x, 64, 3, 1, bn=bn, activation='leaky')
-        x = self.conv2d(x, 64, 3, 1, bn=bn, activation='leaky')
-        x = self.conv2d(x, 32, 1, 1, bn=bn, activation='leaky')
+        x = self.csp_block(x, 64, 3, 3, bn=bn, activation='relu')
+        x = self.conv2d(x, 32, 1, 1, bn=bn, activation='relu')
         x = self.upsampling2d(x)
         x = self.add([x, f1])
-        x = self.conv2d(x, 32, 3, 1, bn=bn, activation='leaky')
-        x = self.conv2d(x, 32, 3, 1, bn=bn, activation='leaky')
-        x = self.conv2d(x, 16, 1, 1, bn=bn, activation='leaky')
+        x = self.csp_block(x, 32, 3, 2, bn=bn, activation='relu')
+        x = self.conv2d(x, 16, 1, 1, bn=bn, activation='relu')
         x = self.upsampling2d(x)
         x = self.add([x, f0])
-        x = self.conv2d(x, 16, 3, 1, bn=bn, activation='leaky')
-        output_layer = self.denoising_layer(x, input_layer, bn=bn, name='dn_output')
+        x = self.csp_block(x, 16, 3, 1, bn=bn, activation='relu')
+        output_layer = self.denoising_layer(x, input_layer, name='dn_output')
         return tf.keras.models.Model(input_layer, output_layer)
 
     def denoising_layer(self, x, input_layer, bn=False, name='dn_output'):
         x = self.conv2d(x, self.input_shape[-1], 1, 1, bn=bn, activation='tanh')
         return self.add([x, input_layer], name=name)
+
+    def csp_block(self, x, filters, kernel_size, depth, bn=False, activation='relu'):
+        half_filters = filters // 2
+        x_0 = self.conv2d(x, half_filters, 1, 1, bn=bn, activation=activation)
+        x_1 = self.conv2d(x, filters, 1, 1, bn=bn, activation=activation)
+        for _ in range(depth):
+            x_0 = self.conv2d(x_0, half_filters, kernel_size, 1, bn=bn, activation=activation)
+        x_0 = self.conv2d(x_0, filters, 1, 1, bn=bn, activation=activation)
+        x = self.add([x_0, x_1])
+        x = self.conv2d(x, filters, 1, 1, bn=bn, activation=activation)
+        return x
 
     def conv2d(self, x, filters, kernel_size, strides, bn=False, activation='relu', name=None):
         x = tf.keras.layers.Conv2D(
@@ -95,7 +102,7 @@ class Model:
         return tf.keras.initializers.glorot_normal()
 
     def kernel_regularizer(self):
-        return tf.keras.regularizers.l2(l2=0.01)
+        return tf.keras.regularizers.l2(l2=0.001)
 
     def activation(self, x, activation, name=None):
         if activation == 'leaky':
