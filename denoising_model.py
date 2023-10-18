@@ -25,6 +25,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 import cv2
 import random
 import warnings
@@ -187,10 +188,11 @@ class DenoisingModel:
         return paths_gt, paths_noisy
 
     def load_model(self, model_path):
+        import tensorflow as tf
         if not (os.path.exists(model_path) and os.path.isfile(model_path)):
             print(f'file not found : {model_path}')
             exit(0)
-        model = tf.keras.models.load_model(model_path, compile=False)
+        model = tf.keras.models.load_model(model_path, compile=False, custom_objects={'tf': tf})
         model_input_shape = model.input_shape[1:]
         if self.input_type in ['nv12', 'nv21']:
             user_input_shape = (model_input_shape[0] // 3 * 2, model_input_shape[1], model_input_shape[2])
