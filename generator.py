@@ -123,7 +123,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 interpolation = cv2.INTER_LINEAR
             else:
                 interpolation = cv2.INTER_AREA
-            return cv2.resize(img, (0, 0), fx=scale, fy=scale)
+            return cv2.resize(img, (0, 0), fx=scale, fy=scale, interpolation=interpolation)
         else:
             if size[0] > img_width or size[1] > img_height:
                 interpolation = cv2.INTER_LINEAR
