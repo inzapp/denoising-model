@@ -406,7 +406,6 @@ class DenoisingModel(CheckpointManager):
         lr_scheduler = LRScheduler(lr=self.lr, iterations=self.iterations, warm_up=self.warm_up, policy='step')
         is_yuv = self.input_type in ['nv12', 'nv21']
         self.init_checkpoint_dir()
-        print(f'checkpoint path : {self.checkpoint_path}')
         while True:
             for batch_x, batch_y in self.data_generator:
                 lr_scheduler.update(optimizer, iteration_count)

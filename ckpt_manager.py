@@ -1,7 +1,7 @@
 """
 Authors : inzapp
 
-Github url : https://github.com/inzapp/denoising-model
+Github url : https://github.com/inzapp/ckpt-manager
 
 Copyright (c) 2023 Inzapp
 
@@ -66,6 +66,7 @@ class CheckpointManager:
                 break
         self.checkpoint_path = new_checkpoint_path
         self.make_checkpoint_dir()
+        print(f'checkpoint path : {self.checkpoint_path}')
 
     def remove_last_model(self):
         for last_model_path in glob(f'{self.checkpoint_path}/model_*_iter.h5'):
