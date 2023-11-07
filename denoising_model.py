@@ -240,6 +240,10 @@ class DenoisingModel(CheckpointManager):
                 image_paths_gt = self.validation_image_paths_gt
                 image_paths_noisy = self.validation_image_paths_noisy
 
+        if predict_gt:
+            image_paths_gt += image_paths_noisy
+            image_paths_noisy = []
+
         if len(image_paths_gt) == 0:
             print(f'no images found')
             return
@@ -262,7 +266,7 @@ class DenoisingModel(CheckpointManager):
             if save_count > 0:
                 basename = os.path.basename(path)
                 save_img_path = f'{save_path}/{basename}'
-                cv2.imwrite(save_img_path, img_concat, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                cv2.imwrite(save_img_path, img_concat, [cv2.IMWRITE_JPEG_QUALITY, 100])
                 cnt += 1
                 print(f'[{cnt} / {save_count}] save success : {save_img_path}')
                 if cnt == save_count:
