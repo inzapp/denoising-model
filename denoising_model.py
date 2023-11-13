@@ -53,7 +53,7 @@ class TrainingConfig:
                  input_type='gray',
                  model_name='model',
                  lr=0.001,
-                 warm_up=0.1,
+                 warm_up=0.5,
                  batch_size=2,
                  iterations=100000,
                  save_interval=5000,
