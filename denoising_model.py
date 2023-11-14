@@ -38,6 +38,7 @@ from glob import glob
 from tqdm import tqdm
 from time import time
 from model import Model
+from eta import ETACalculator
 from generator import DataGenerator
 from lr_scheduler import LRScheduler
 from ckpt_manager import CheckpointManager
@@ -75,6 +76,7 @@ class TrainingConfig:
 
 class DenoisingModel(CheckpointManager):
     def __init__(self, config, training):
+        super().__init__()
         assert config.save_interval >= 1000
         self.pretrained_model_path = config.pretrained_model_path
         self.train_image_path = config.train_image_path
@@ -405,17 +407,19 @@ class DenoisingModel(CheckpointManager):
         self.model.summary()
         print(f'\ntrain on {len(self.train_image_paths_gt)} gt, {len(self.train_image_paths_noisy)} noisy samples.')
         print('start training')
+        self.init_checkpoint_dir()
         iteration_count = self.pretrained_iteration_count
         optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr)
         lr_scheduler = LRScheduler(lr=self.lr, iterations=self.iterations, warm_up=self.warm_up, policy='step')
-        is_yuv = self.input_type in ['nv12', 'nv21']
-        self.init_checkpoint_dir()
+        eta_calculator = ETACalculator(iterations=self.iterations)
+        eta_calculator.start()
         while True:
             for batch_x, batch_y in self.data_generator:
                 lr_scheduler.update(optimizer, iteration_count)
                 mse = self.compute_gradient(self.model, optimizer, batch_x, batch_y)
                 iteration_count += 1
-                print(f'\r[iteration_count : {iteration_count:6d}] loss : {mse:>8.4f}, psnr : {self.psnr(mse):.2f}', end='')
+                progress_str = eta_calculator.update(iteration_count)
+                print(f'\r{progress_str} loss : {mse:>8.4f}, psnr : {self.psnr(mse):.2f}', end='')
                 if self.training_view:
                     self.training_view_function()
                 if iteration_count % 2000 == 0:
