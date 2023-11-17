@@ -111,6 +111,5 @@ if __name__ == '__main__':
         if iteration_count == total_iterations:
             break
     avg_ips, elapsed_time = eta_calculator.end()
-    eta_calculator.reset()
     print(f'\ntotal {total_iterations} iterations end successfully with avg IPS {avg_ips:.2f}, elapsed time : {elapsed_time}')
 
